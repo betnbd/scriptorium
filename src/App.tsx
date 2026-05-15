@@ -37,6 +37,7 @@ export default function App() {
     null,
   );
   const [assistantMode, setAssistantMode] = useState<AssistantMode>("rewrite");
+  const [isAssistantRunning, setIsAssistantRunning] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [hasLocalSettings, setHasLocalSettings] = useState(false);
   const [paneLayout, setPaneLayout] =
@@ -407,23 +408,6 @@ export default function App() {
     setActiveResizePane(pane);
   }
 
-  async function openSubscriptionProvider(
-    provider: Extract<
-      AppSettings["defaultProvider"],
-      "openai-subscription" | "anthropic-subscription"
-    >,
-  ) {
-    try {
-      await tauriApi.openExternal(
-        provider === "openai-subscription"
-          ? state.settings.openaiUrl
-          : state.settings.anthropicUrl,
-      );
-    } catch (error) {
-      showError(error);
-    }
-  }
-
   function pathAffectsOpenFile(path: string) {
     return state.openFile
       ? isSamePathOrDescendant(state.openFile.relativePath, path)
@@ -455,11 +439,12 @@ export default function App() {
   }
 
   async function submitAssistantRequest(request: AssistantRequest) {
-    if (!state.openFile) {
+    if (!state.rootPath || !state.openFile || isAssistantRunning) {
       return;
     }
 
     try {
+      setIsAssistantRunning(true);
       setAssistantMode(request.mode);
 
       const submittedFilePath = state.openFile.relativePath;
@@ -480,7 +465,15 @@ export default function App() {
           ? `${state.openFile.relativePath} (current selection)`
           : state.openFile.relativePath,
         targetMarkdown,
+        projectFiles: flattenProjectFilePaths(state.tree),
         context,
+      });
+      dispatch({
+        type: "assistantMessageAdded",
+        message: {
+          role: "user",
+          content: formatAssistantUserMessage(request, submittedFilePath),
+        },
       });
 
       if (request.provider === "lm-studio") {
@@ -499,15 +492,22 @@ export default function App() {
         return;
       }
 
-      await tauriApi.copyText(prompt);
+      const response = await tauriApi.sendCliAgentRequest(
+        request.provider,
+        state.rootPath,
+        prompt,
+      );
 
-      if (request.provider === "openai-subscription") {
-        await tauriApi.openExternal(state.settings.openaiUrl);
-      } else if (request.provider === "anthropic-subscription") {
-        await tauriApi.openExternal(state.settings.anthropicUrl);
-      }
+      importAssistantResponse(
+        response,
+        request.mode,
+        submittedFilePath,
+        submittedMarkdown,
+      );
     } catch (error) {
       showError(error);
+    } finally {
+      setIsAssistantRunning(false);
     }
   }
 
@@ -554,7 +554,9 @@ export default function App() {
           content:
             parsed.kind === "suggestions"
               ? parsed.suggestions
-              : "Imported assistant result.",
+              : parsed.kind === "diff"
+                ? "Applied proposed edits to the open file."
+                : "Applied rewrite to the open file.",
         },
       });
     } catch (error) {
@@ -585,10 +587,7 @@ export default function App() {
         onSettings={() => setIsSettingsOpen(true)}
         onReindex={() => void reindexProject()}
         onResetLayout={() => setPaneLayout(resetPaneLayout())}
-        onOpenChatGpt={() => void openSubscriptionProvider("openai-subscription")}
-        onOpenClaude={() =>
-          void openSubscriptionProvider("anthropic-subscription")
-        }
+        onResetAssistant={() => dispatch({ type: "assistantMessagesReset" })}
       />
       <div className="workspace-grid">
         <aside className="file-pane">
@@ -628,12 +627,12 @@ export default function App() {
         <AssistantPane
           key={state.settings.defaultProvider}
           defaultProvider={state.settings.defaultProvider}
+          isRunning={isAssistantRunning}
           messages={state.assistantMessages}
           onSubmit={(request) => {
             void submitAssistantRequest(request);
           }}
           onImport={importAssistantResponse}
-          onOpenProvider={(provider) => void openSubscriptionProvider(provider)}
         />
       </div>
       {isSettingsOpen ? (
@@ -735,6 +734,31 @@ function findFileNode(nodes: FileNode[], relativePath: string): FileNode | null 
   }
 
   return null;
+}
+
+function flattenProjectFilePaths(nodes: FileNode[]): string[] {
+  return nodes.flatMap((node) => {
+    if (node.kind === "directory") {
+      return flattenProjectFilePaths(node.children ?? []);
+    }
+
+    return [node.relativePath];
+  });
+}
+
+function formatAssistantUserMessage(
+  request: AssistantRequest,
+  relativePath: string,
+): string {
+  const instruction = request.instruction.trim() || "Use your best editorial judgment.";
+  const providerLabel =
+    request.provider === "openai-subscription"
+      ? "OpenAI via Codex"
+      : request.provider === "anthropic-subscription"
+        ? "Anthropic via Claude Code"
+        : "LM Studio";
+
+  return `${providerLabel} / ${request.mode} / ${relativePath}\n\n${instruction}`;
 }
 
 async function buildMarkdownIndex(

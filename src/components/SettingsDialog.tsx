@@ -53,33 +53,31 @@ export function SettingsDialog({
                 })
               }
             >
-              <option value="openai-subscription">OpenAI subscription</option>
+              <option value="openai-subscription">
+                OpenAI subscription via Codex
+              </option>
               <option value="anthropic-subscription">
-                Anthropic subscription
+                Anthropic subscription via Claude Code
               </option>
               <option value="lm-studio">LM Studio</option>
             </select>
           </label>
 
-          <label>
-            OpenAI URL
-            <input
-              value={draft.openaiUrl}
-              onChange={(event) =>
-                setDraft({ ...draft, openaiUrl: event.target.value })
-              }
-            />
-          </label>
-
-          <label>
-            Anthropic URL
-            <input
-              value={draft.anthropicUrl}
-              onChange={(event) =>
-                setDraft({ ...draft, anthropicUrl: event.target.value })
-              }
-            />
-          </label>
+          <section className="provider-login-settings">
+            <h3>Subscription sign-in</h3>
+            <p>
+              DraftAgent uses your local CLI sessions for subscription-backed
+              providers. Sign in once in a terminal, then return here.
+            </p>
+            <div>
+              <span>OpenAI</span>
+              <code>codex login</code>
+            </div>
+            <div>
+              <span>Anthropic</span>
+              <code>claude auth login</code>
+            </div>
+          </section>
 
           <label>
             LM Studio base URL

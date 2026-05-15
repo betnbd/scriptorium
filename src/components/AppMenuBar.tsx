@@ -12,8 +12,7 @@ interface AppMenuBarProps {
   onSettings: () => void;
   onReindex: () => void;
   onResetLayout: () => void;
-  onOpenChatGpt: () => void;
-  onOpenClaude: () => void;
+  onResetAssistant: () => void;
 }
 
 export function AppMenuBar({
@@ -26,8 +25,7 @@ export function AppMenuBar({
   onSettings,
   onReindex,
   onResetLayout,
-  onOpenChatGpt,
-  onOpenClaude,
+  onResetAssistant,
 }: AppMenuBarProps) {
   return (
     <header className="app-menubar">
@@ -60,11 +58,11 @@ export function AppMenuBar({
           </button>
         </Menu>
         <Menu label="Assistant">
-          <button type="button" onClick={onOpenChatGpt}>
-            Open ChatGPT
+          <button type="button" onClick={onResetAssistant}>
+            Reset Conversation
           </button>
-          <button type="button" onClick={onOpenClaude}>
-            Open Claude
+          <button type="button" onClick={onSettings}>
+            Provider Settings
           </button>
         </Menu>
       </nav>

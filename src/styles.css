@@ -193,12 +193,21 @@ select {
 }
 
 .assistant-controls,
-.assistant-subscriptions,
 .assistant-import,
 .assistant-history {
   display: flex;
   flex-direction: column;
   gap: 12px;
+}
+
+.assistant-provider-note {
+  border: 1px solid #cdd5df;
+  border-radius: 6px;
+  padding: 10px;
+  color: #4a5565;
+  background: #ffffff;
+  font-size: 13px;
+  line-height: 1.4;
 }
 
 .assistant-pane label {
@@ -232,6 +241,18 @@ select {
   min-height: 180px;
 }
 
+.assistant-import summary {
+  color: #4a5565;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.assistant-import[open] {
+  border-top: 1px solid #d9dee7;
+  padding-top: 12px;
+}
+
 .assistant-pane button {
   display: inline-flex;
   min-height: 36px;
@@ -246,16 +267,11 @@ select {
   cursor: pointer;
 }
 
-.assistant-subscriptions {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px;
-}
-
-.assistant-subscriptions button {
+.assistant-pane button:disabled {
   border-color: #b8c0cc;
-  color: #20242a;
-  background: #ffffff;
+  color: #687485;
+  background: #e6eaf0;
+  cursor: not-allowed;
 }
 
 .assistant-message {
@@ -616,6 +632,49 @@ select {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
+}
+
+.provider-login-settings {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  border: 1px solid #d9dee7;
+  border-radius: 6px;
+  padding: 12px;
+  background: #f8f9fb;
+}
+
+.provider-login-settings h3 {
+  margin: 0;
+  color: #1f2933;
+  font-size: 14px;
+  font-weight: 650;
+}
+
+.provider-login-settings p {
+  margin: 0;
+  color: #4a5565;
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.provider-login-settings div {
+  display: grid;
+  grid-template-columns: 92px minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+  color: #4a5565;
+  font-size: 13px;
+}
+
+.provider-login-settings code {
+  overflow: hidden;
+  border: 1px solid #cdd5df;
+  border-radius: 5px;
+  padding: 4px 7px;
+  color: #20242a;
+  background: #ffffff;
+  text-overflow: ellipsis;
 }
 
 .settings-form .settings-checkbox {

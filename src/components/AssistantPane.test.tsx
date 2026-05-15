@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 import { AssistantPane } from "./AssistantPane";
 
 describe("AssistantPane", () => {
-  it("submits a subscription handoff request", async () => {
+  it("submits an in-app subscription-backed request", async () => {
     const user = userEvent.setup();
     const onSubmit = vi.fn();
 
@@ -18,7 +18,7 @@ describe("AssistantPane", () => {
     );
 
     await user.type(screen.getByLabelText("Instruction"), "Make it sharper");
-    await user.click(screen.getByRole("button", { name: "Prepare" }));
+    await user.click(screen.getByRole("button", { name: "Send" }));
 
     expect(onSubmit).toHaveBeenCalledWith({
       provider: "openai-subscription",
@@ -27,7 +27,7 @@ describe("AssistantPane", () => {
     });
   });
 
-  it("lets the user select provider and mode before preparing", async () => {
+  it("lets the user select provider and mode before sending", async () => {
     const user = userEvent.setup();
     const onSubmit = vi.fn();
 
@@ -46,7 +46,7 @@ describe("AssistantPane", () => {
     );
     await user.selectOptions(screen.getByLabelText("Mode"), "diff");
     await user.type(screen.getByLabelText("Instruction"), "Show exact edits");
-    await user.click(screen.getByRole("button", { name: "Prepare" }));
+    await user.click(screen.getByRole("button", { name: "Send" }));
 
     expect(onSubmit).toHaveBeenCalledWith({
       provider: "anthropic-subscription",
@@ -68,6 +68,7 @@ describe("AssistantPane", () => {
       />,
     );
 
+    await user.click(screen.getByText("Manual import"));
     await user.type(
       screen.getByLabelText("Import response"),
       "Use shorter sentences.",
@@ -77,25 +78,32 @@ describe("AssistantPane", () => {
     expect(onImport).toHaveBeenCalledWith("Use shorter sentences.", "rewrite");
   });
 
-  it("opens subscription login targets", async () => {
-    const user = userEvent.setup();
-    const onOpenProvider = vi.fn();
-
+  it("shows the built-in CLI provider route", () => {
     render(
       <AssistantPane
         defaultProvider="openai-subscription"
         messages={[]}
         onSubmit={vi.fn()}
         onImport={vi.fn()}
-        onOpenProvider={onOpenProvider}
       />,
     );
 
-    await user.click(screen.getByRole("button", { name: "Open ChatGPT" }));
-    await user.click(screen.getByRole("button", { name: "Open Claude" }));
+    expect(screen.getByText(/OpenAI uses Codex CLI/)).toBeInTheDocument();
+    expect(screen.getAllByText(/Claude Code/).length).toBeGreaterThan(0);
+  });
 
-    expect(onOpenProvider).toHaveBeenNthCalledWith(1, "openai-subscription");
-    expect(onOpenProvider).toHaveBeenNthCalledWith(2, "anthropic-subscription");
+  it("disables sending while a request is running", () => {
+    render(
+      <AssistantPane
+        defaultProvider="openai-subscription"
+        isRunning
+        messages={[]}
+        onSubmit={vi.fn()}
+        onImport={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByRole("button", { name: "Working..." })).toBeDisabled();
   });
 
   it("passes the selected mode when importing a response", async () => {
@@ -112,6 +120,7 @@ describe("AssistantPane", () => {
     );
 
     await user.selectOptions(screen.getByLabelText("Mode"), "suggestions");
+    await user.click(screen.getByText("Manual import"));
     await user.type(screen.getByLabelText("Import response"), "Raise the stakes.");
     await user.click(screen.getByRole("button", { name: "Import" }));
 

@@ -21,6 +21,8 @@ describe("SettingsDialog", () => {
       screen.getByLabelText("Default provider"),
       "anthropic-subscription",
     );
+    expect(screen.getByText("codex login")).toBeInTheDocument();
+    expect(screen.getByText("claude auth login")).toBeInTheDocument();
     await user.clear(screen.getByLabelText("LM Studio model"));
     await user.type(screen.getByLabelText("LM Studio model"), "mistral-local");
     await user.clear(screen.getByLabelText("Editor font size"));
@@ -58,7 +60,7 @@ describe("SettingsDialog", () => {
         settings={{
           ...defaultSettings,
           defaultProvider: "anthropic-subscription",
-          openaiUrl: "https://example.test/chatgpt",
+          lmStudioModel: "custom-local",
         }}
         onSave={onSave}
         onClose={vi.fn()}
@@ -70,7 +72,7 @@ describe("SettingsDialog", () => {
     expect(onSave).toHaveBeenCalledWith(
       expect.objectContaining({
         defaultProvider: "anthropic-subscription",
-        openaiUrl: "https://example.test/chatgpt",
+        lmStudioModel: "custom-local",
       }),
     );
   });

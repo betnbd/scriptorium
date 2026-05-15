@@ -53,6 +53,11 @@ export interface TauriApi {
     model: string,
     prompt: string,
   ): Promise<string>;
+  sendCliAgentRequest(
+    provider: "openai-subscription" | "anthropic-subscription",
+    rootPath: string,
+    prompt: string,
+  ): Promise<string>;
 }
 
 export function createTauriApi(deps: TauriApiDeps): TauriApi {
@@ -153,6 +158,17 @@ export function createTauriApi(deps: TauriApiDeps): TauriApi {
         "send_lm_studio_request",
         {
           request: { baseUrl, model, prompt },
+        },
+      );
+
+      return response.content;
+    },
+
+    async sendCliAgentRequest(provider, rootPath, prompt) {
+      const response = await deps.invoke<{ content: string }>(
+        "send_cli_agent_request",
+        {
+          request: { provider, rootPath, prompt },
         },
       );
 

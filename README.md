@@ -9,8 +9,11 @@ DraftAgent is a local desktop writing workspace for drafting and revising long-f
 - Open one Markdown file at a time in the center editor.
 - Write in a rich editor while DraftAgent saves plain Markdown.
 - Save explicitly; manuscript changes are not autosaved.
-- Use the assistant pane to prepare OpenAI/Anthropic subscription handoff prompts or send directly to LM Studio.
-- Import assistant rewrites, proposed diff edits, or suggestions back into the workspace.
+- Use the assistant pane to talk to an in-app provider:
+  - OpenAI subscription via a local `codex login` session.
+  - Anthropic subscription via a local `claude auth login` session.
+  - LM Studio through its local OpenAI-compatible server.
+- Apply assistant rewrites, proposed diff edits, or suggestions back into the workspace.
 
 ## Development
 

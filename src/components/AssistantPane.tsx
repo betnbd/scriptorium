@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { ExternalLink } from "lucide-react";
 import type { AssistantMessage, AssistantMode, ProviderId } from "../types";
 
 export interface AssistantRequest {
@@ -11,17 +10,17 @@ export interface AssistantRequest {
 interface AssistantPaneProps {
   defaultProvider: ProviderId;
   messages: AssistantMessage[];
+  isRunning?: boolean;
   onSubmit: (request: AssistantRequest) => void;
   onImport: (response: string, mode: AssistantMode) => void;
-  onOpenProvider?: (provider: Extract<ProviderId, "openai-subscription" | "anthropic-subscription">) => void;
 }
 
 export function AssistantPane({
   defaultProvider,
   messages,
+  isRunning = false,
   onSubmit,
   onImport,
-  onOpenProvider,
 }: AssistantPaneProps) {
   const [provider, setProvider] = useState<ProviderId>(defaultProvider);
   const [mode, setMode] = useState<AssistantMode>("rewrite");
@@ -34,21 +33,9 @@ export function AssistantPane({
         <h2>Assistant</h2>
       </header>
 
-      <div className="assistant-subscriptions" aria-label="Subscription login">
-        <button
-          type="button"
-          onClick={() => onOpenProvider?.("openai-subscription")}
-        >
-          <ExternalLink aria-hidden="true" size={15} />
-          Open ChatGPT
-        </button>
-        <button
-          type="button"
-          onClick={() => onOpenProvider?.("anthropic-subscription")}
-        >
-          <ExternalLink aria-hidden="true" size={15} />
-          Open Claude
-        </button>
+      <div className="assistant-provider-note">
+        OpenAI uses Codex CLI. Anthropic uses Claude Code. Both run inside this
+        app with the open project context.
       </div>
 
       <div className="assistant-controls">
@@ -58,8 +45,12 @@ export function AssistantPane({
             value={provider}
             onChange={(event) => setProvider(event.target.value as ProviderId)}
           >
-            <option value="openai-subscription">OpenAI subscription</option>
-            <option value="anthropic-subscription">Anthropic subscription</option>
+            <option value="openai-subscription">
+              OpenAI subscription via Codex
+            </option>
+            <option value="anthropic-subscription">
+              Anthropic subscription via Claude Code
+            </option>
             <option value="lm-studio">LM Studio</option>
           </select>
         </label>
@@ -87,13 +78,15 @@ export function AssistantPane({
 
         <button
           type="button"
+          disabled={isRunning}
           onClick={() => onSubmit({ provider, mode, instruction })}
         >
-          Prepare
+          {isRunning ? "Working..." : "Send"}
         </button>
       </div>
 
-      <div className="assistant-import">
+      <details className="assistant-import">
+        <summary>Manual import</summary>
         <label>
           Import response
           <textarea
@@ -106,7 +99,7 @@ export function AssistantPane({
         <button type="button" onClick={() => onImport(importText, mode)}>
           Import
         </button>
-      </div>
+      </details>
 
       {messages.length > 0 ? (
         <div className="assistant-history" aria-label="Assistant history">

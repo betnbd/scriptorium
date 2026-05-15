@@ -38,6 +38,7 @@ export type AppAction =
     }
   | { type: "indexedDocumentUpdated"; document: IndexedDocument }
   | { type: "assistantMessageAdded"; message: AssistantMessage }
+  | { type: "assistantMessagesReset" }
   | { type: "settingsLoaded"; settings: AppSettings }
   | { type: "errorShown"; message: string }
   | { type: "errorCleared" };
@@ -139,6 +140,11 @@ export function appReducer(state: AppState, action: AppAction): AppState {
       return {
         ...state,
         assistantMessages: [...state.assistantMessages, action.message],
+      };
+    case "assistantMessagesReset":
+      return {
+        ...state,
+        assistantMessages: [],
       };
     case "settingsLoaded":
       return {

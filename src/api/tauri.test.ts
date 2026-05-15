@@ -99,6 +99,31 @@ describe("createTauriApi", () => {
     expect(result).toBe("Local response.");
   });
 
+  it("invokes subscription CLI agent requests inside the opened project", async () => {
+    const invoke = vi.fn().mockResolvedValue({ content: "Built-in response." });
+    const api = createTauriApi({
+      invoke,
+      open: vi.fn(),
+      writeText: vi.fn(),
+      openUrl: vi.fn(),
+    });
+
+    const result = await api.sendCliAgentRequest(
+      "openai-subscription",
+      "/novel",
+      "Revise this scene.",
+    );
+
+    expect(invoke).toHaveBeenCalledWith("send_cli_agent_request", {
+      request: {
+        provider: "openai-subscription",
+        rootPath: "/novel",
+        prompt: "Revise this scene.",
+      },
+    });
+    expect(result).toBe("Built-in response.");
+  });
+
   it("loads and saves app settings with camelCase settings payloads", async () => {
     const savedSettings = {
       ...defaultSettings,

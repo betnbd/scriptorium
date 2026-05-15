@@ -16,6 +16,7 @@ const tauriApiMock = vi.hoisted(() => ({
   moveEntry: vi.fn(),
   copyText: vi.fn(),
   openExternal: vi.fn(),
+  sendCliAgentRequest: vi.fn(),
   sendLmStudioRequest: vi.fn(),
   loadSettings: vi.fn(),
   loadProjectEnv: vi.fn(),
@@ -84,6 +85,7 @@ describe("App", () => {
     tauriApiMock.moveEntry.mockReset();
     tauriApiMock.copyText.mockReset();
     tauriApiMock.openExternal.mockReset();
+    tauriApiMock.sendCliAgentRequest.mockReset();
     tauriApiMock.sendLmStudioRequest.mockReset();
     tauriApiMock.loadSettings.mockReset();
     tauriApiMock.loadProjectEnv.mockReset();
@@ -105,22 +107,11 @@ describe("App", () => {
     expect(screen.getByRole("heading", { name: "Assistant" })).toBeInTheDocument();
   });
 
-  it("opens subscription login targets from the assistant pane", async () => {
-    const user = userEvent.setup();
-
+  it("describes subscription providers as built-in CLI routes", () => {
     render(<App />);
 
-    await user.click(screen.getByRole("button", { name: "Open ChatGPT" }));
-    await user.click(screen.getByRole("button", { name: "Open Claude" }));
-
-    expect(tauriApiMock.openExternal).toHaveBeenNthCalledWith(
-      1,
-      "https://chatgpt.com/",
-    );
-    expect(tauriApiMock.openExternal).toHaveBeenNthCalledWith(
-      2,
-      "https://claude.ai/new",
-    );
+    expect(screen.getByText(/OpenAI uses Codex CLI/)).toBeInTheDocument();
+    expect(screen.getAllByText(/Claude Code/).length).toBeGreaterThan(0);
   });
 
   it("opens settings, saves changes, and updates provider workflow", async () => {
@@ -133,14 +124,13 @@ describe("App", () => {
       screen.getByLabelText("Default provider"),
       "anthropic-subscription",
     );
-    await user.clear(screen.getByLabelText("Anthropic URL"));
-    await user.type(screen.getByLabelText("Anthropic URL"), "https://claude.ai/chat");
+    expect(screen.getByText("codex login")).toBeInTheDocument();
+    expect(screen.getByText("claude auth login")).toBeInTheDocument();
     await user.click(screen.getByText("Save settings"));
 
     expect(tauriApiMock.saveSettings).toHaveBeenCalledWith(
       expect.objectContaining({
         defaultProvider: "anthropic-subscription",
-        anthropicUrl: "https://claude.ai/chat",
       }),
     );
     expect(screen.queryByRole("dialog", { name: "Settings" })).not.toBeInTheDocument();
@@ -282,7 +272,7 @@ describe("App", () => {
     expect(await screen.findByText("No file open")).toBeInTheDocument();
   });
 
-  it("prepares a subscription handoff prompt from the current selection and indexed context", async () => {
+  it("sends OpenAI subscription requests in-pane with current selection and indexed context", async () => {
     const user = userEvent.setup();
     const chapter = fileNode("chapter-1.md");
     const notes = fileNode("notes.md");
@@ -291,6 +281,9 @@ describe("App", () => {
       "chapter-1.md": "# Chapter 1\n\nThe house shuddered.\n\nOther line.",
       "notes.md": "# Notes\n\nThe house is haunted.",
     });
+    tauriApiMock.sendCliAgentRequest.mockResolvedValueOnce(
+      "# Chapter 1\n\nThe old house shuddered harder.",
+    );
 
     render(<App />);
 
@@ -300,18 +293,35 @@ describe("App", () => {
     );
     await user.click(screen.getByRole("button", { name: "Select Text" }));
     await user.type(screen.getByLabelText("Instruction"), "Make this more tense");
-    await user.click(screen.getByRole("button", { name: "Prepare" }));
+    await user.click(screen.getByRole("button", { name: "Send" }));
 
-    expect(tauriApiMock.copyText).toHaveBeenCalledWith(
+    expect(tauriApiMock.sendCliAgentRequest).toHaveBeenCalledWith(
+      "openai-subscription",
+      "/novel",
       expect.stringContaining("The house shuddered."),
     );
-    expect(tauriApiMock.copyText).toHaveBeenCalledWith(
+    expect(tauriApiMock.sendCliAgentRequest).toHaveBeenCalledWith(
+      "openai-subscription",
+      "/novel",
       expect.not.stringContaining("Other line."),
     );
-    expect(tauriApiMock.copyText).toHaveBeenCalledWith(
+    expect(tauriApiMock.sendCliAgentRequest).toHaveBeenCalledWith(
+      "openai-subscription",
+      "/novel",
       expect.stringContaining("The house is haunted."),
     );
-    expect(tauriApiMock.openExternal).toHaveBeenCalledWith("https://chatgpt.com/");
+    expect(tauriApiMock.sendCliAgentRequest).toHaveBeenCalledWith(
+      "openai-subscription",
+      "/novel",
+      expect.stringContaining("- notes.md"),
+    );
+    expect(tauriApiMock.copyText).not.toHaveBeenCalled();
+    expect(tauriApiMock.openExternal).not.toHaveBeenCalled();
+    expect(screen.getByLabelText("Current markdown")).toHaveTextContent(
+      "# Chapter 1 The old house shuddered harder.",
+    );
+    expect(screen.getByText(/OpenAI via Codex/)).toBeInTheDocument();
+    expect(screen.getByText("Applied rewrite to the open file.")).toBeInTheDocument();
   });
 
   it("sends LM Studio requests directly and imports the response", async () => {
@@ -335,7 +345,7 @@ describe("App", () => {
     );
     await user.selectOptions(screen.getByLabelText("Provider"), "lm-studio");
     await user.type(screen.getByLabelText("Instruction"), "Rewrite locally");
-    await user.click(screen.getByRole("button", { name: "Prepare" }));
+    await user.click(screen.getByRole("button", { name: "Send" }));
 
     expect(tauriApiMock.sendLmStudioRequest).toHaveBeenCalledWith(
       "http://127.0.0.1:1234/v1",
@@ -352,7 +362,7 @@ describe("App", () => {
     expect(screen.getByLabelText("Current markdown")).toHaveTextContent(
       "# Chapter 1 New local text.",
     );
-    expect(screen.getByText("Imported assistant result.")).toBeInTheDocument();
+    expect(screen.getByText("Applied rewrite to the open file.")).toBeInTheDocument();
   });
 
   it("does not import a stale LM Studio response after switching files", async () => {
@@ -378,7 +388,7 @@ describe("App", () => {
       await screen.findByRole("button", { name: "Open chapter-1.md" }),
     );
     await user.selectOptions(screen.getByLabelText("Provider"), "lm-studio");
-    await user.click(screen.getByRole("button", { name: "Prepare" }));
+    await user.click(screen.getByRole("button", { name: "Send" }));
     await user.click(await screen.findByRole("button", { name: "Open scene.md" }));
     resolveLocalResponse("# Chapter 1\n\nLate response.");
 
@@ -387,7 +397,7 @@ describe("App", () => {
       "# Scene Different text.",
     );
     expect(
-      screen.queryByText("Imported assistant result."),
+      screen.queryByText("Applied rewrite to the open file."),
     ).not.toBeInTheDocument();
   });
 
@@ -409,7 +419,7 @@ describe("App", () => {
       await screen.findByRole("button", { name: "Open chapter-1.md" }),
     );
     await user.selectOptions(screen.getByLabelText("Provider"), "lm-studio");
-    await user.click(screen.getByRole("button", { name: "Prepare" }));
+    await user.click(screen.getByRole("button", { name: "Send" }));
 
     expect(await screen.findByText("LM Studio is unavailable.")).toBeInTheDocument();
     expect(screen.getByLabelText("Current markdown")).toHaveTextContent(
@@ -455,6 +465,9 @@ describe("App", () => {
       "chapter-1.md": "# Chapter 1\n\nThe lantern flickered.",
       "notes.md": "# Notes\n\nOld clue.",
     });
+    tauriApiMock.sendCliAgentRequest.mockResolvedValueOnce(
+      "# Chapter 1\n\nTighter text.",
+    );
 
     render(<App />);
 
@@ -464,9 +477,11 @@ describe("App", () => {
     await user.click(screen.getByRole("button", { name: "Save" }));
     await user.click(screen.getByRole("button", { name: "Open chapter-1.md" }));
     await user.type(screen.getByLabelText("Instruction"), "Tighten this");
-    await user.click(screen.getByRole("button", { name: "Prepare" }));
+    await user.click(screen.getByRole("button", { name: "Send" }));
 
-    expect(tauriApiMock.copyText).toHaveBeenCalledWith(
+    expect(tauriApiMock.sendCliAgentRequest).toHaveBeenCalledWith(
+      "openai-subscription",
+      "/novel",
       expect.stringContaining("Changed lantern."),
     );
   });
@@ -483,6 +498,7 @@ describe("App", () => {
 
     await user.click(screen.getByRole("button", { name: "Open Folder" }));
     await user.click(await screen.findByRole("button", { name: "Open chapter-1.md" }));
+    await user.click(screen.getByText("Manual import"));
     await user.clear(screen.getByLabelText("Import response"));
     await user.type(
       screen.getByLabelText("Import response"),
@@ -494,7 +510,7 @@ describe("App", () => {
       "# Chapter 1 New text.",
     );
     expect(screen.getByText("Unsaved")).toBeInTheDocument();
-    expect(screen.getByText("Imported assistant result.")).toBeInTheDocument();
+    expect(screen.getByText("Applied rewrite to the open file.")).toBeInTheDocument();
     expect(tauriApiMock.writeMarkdownFile).not.toHaveBeenCalled();
   });
 
@@ -513,6 +529,7 @@ describe("App", () => {
       await screen.findByRole("button", { name: "Open chapter-1.md" }),
     );
     await user.selectOptions(screen.getByLabelText("Mode"), "diff");
+    await user.click(screen.getByText("Manual import"));
     await user.type(
       screen.getByLabelText("Import response"),
       "```diff\n--- a/chapter-1.md\n+++ b/chapter-1.md\n@@ -1,3 +1,3 @@\n # Chapter 1\n \n-Old text.\n+New text.\n```",
@@ -523,7 +540,7 @@ describe("App", () => {
       "# Chapter 1 New text.",
     );
     expect(screen.getByText("Unsaved")).toBeInTheDocument();
-    expect(screen.getByText("Imported assistant result.")).toBeInTheDocument();
+    expect(screen.getByText("Applied proposed edits to the open file.")).toBeInTheDocument();
     expect(tauriApiMock.writeMarkdownFile).not.toHaveBeenCalled();
   });
 
@@ -542,6 +559,7 @@ describe("App", () => {
       await screen.findByRole("button", { name: "Open chapter-1.md" }),
     );
     await user.selectOptions(screen.getByLabelText("Mode"), "suggestions");
+    await user.click(screen.getByText("Manual import"));
     await user.type(screen.getByLabelText("Import response"), "- Raise the stakes.");
     await user.click(screen.getByRole("button", { name: "Import" }));
 
@@ -571,6 +589,7 @@ describe("App", () => {
       await screen.findByRole("button", { name: "Open chapter-1.md" }),
     );
     await user.selectOptions(screen.getByLabelText("Mode"), "diff");
+    await user.click(screen.getByText("Manual import"));
     await user.type(
       screen.getByLabelText("Import response"),
       "```diff\n--- a/chapter-1.md\n+++ b/chapter-1.md\n@@ -1,3 +1,3 @@\n # Chapter 1\n \n-Missing text.\n+New text.\n```",
@@ -584,7 +603,7 @@ describe("App", () => {
       "# Chapter 1 Old text.",
     );
     expect(
-      screen.queryByText("Imported assistant result."),
+      screen.queryByText("Applied proposed edits to the open file."),
     ).not.toBeInTheDocument();
   });
 });

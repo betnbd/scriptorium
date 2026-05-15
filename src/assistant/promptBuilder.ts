@@ -5,6 +5,7 @@ interface PromptInput {
   instruction: string;
   targetLabel: string;
   targetMarkdown: string;
+  projectFiles: string[];
   context: Pick<IndexedDocument, "relativePath" | "title" | "chunks">[];
 }
 
@@ -34,11 +35,22 @@ export function buildAssistantPrompt(input: PromptInput): string {
     input.targetMarkdown,
     "```",
     "",
+    "Project files visible in the file pane:",
+    formatProjectFiles(input.projectFiles),
+    "",
     "Relevant context:",
     contextText || "No extra context selected.",
     "",
     outputInstructions(input.mode),
   ].join("\n");
+}
+
+function formatProjectFiles(files: string[]): string {
+  if (files.length === 0) {
+    return "No project files are currently visible.";
+  }
+
+  return files.slice(0, 120).map((path) => `- ${path}`).join("\n");
 }
 
 function outputInstructions(mode: AssistantMode): string {

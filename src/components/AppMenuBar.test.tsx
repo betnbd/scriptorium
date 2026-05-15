@@ -14,8 +14,7 @@ function renderMenu(overrides = {}) {
     onSettings: vi.fn(),
     onReindex: vi.fn(),
     onResetLayout: vi.fn(),
-    onOpenChatGpt: vi.fn(),
-    onOpenClaude: vi.fn(),
+    onResetAssistant: vi.fn(),
     ...overrides,
   };
 
@@ -34,15 +33,15 @@ describe("AppMenuBar", () => {
     expect(props.onSave).toHaveBeenCalledOnce();
   });
 
-  it("opens subscription providers from the assistant menu", async () => {
+  it("exposes assistant session actions from the assistant menu", async () => {
     const user = userEvent.setup();
     const props = renderMenu();
 
     await user.click(screen.getByText("Assistant"));
-    await user.click(screen.getByRole("button", { name: "Open ChatGPT" }));
-    await user.click(screen.getByRole("button", { name: "Open Claude" }));
+    await user.click(screen.getByRole("button", { name: "Reset Conversation" }));
+    await user.click(screen.getByRole("button", { name: "Provider Settings" }));
 
-    expect(props.onOpenChatGpt).toHaveBeenCalledOnce();
-    expect(props.onOpenClaude).toHaveBeenCalledOnce();
+    expect(props.onResetAssistant).toHaveBeenCalledOnce();
+    expect(props.onSettings).toHaveBeenCalledOnce();
   });
 });

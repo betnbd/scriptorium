@@ -8,6 +8,7 @@ describe("buildAssistantPrompt", () => {
       instruction: "Make this more tense.",
       targetLabel: "chapter.md",
       targetMarkdown: "The door opened.",
+      projectFiles: ["chapter.md", "notes.md"],
       context: [
         {
           relativePath: "notes.md",
@@ -21,6 +22,8 @@ describe("buildAssistantPrompt", () => {
     expect(prompt).toContain("Instruction: Make this more tense.");
     expect(prompt).toContain("Target: chapter.md");
     expect(prompt).toContain("The door opened.");
+    expect(prompt).toContain("Project files visible in the file pane:");
+    expect(prompt).toContain("- notes.md");
     expect(prompt).toContain("The house is haunted.");
     expect(prompt).toContain("Return only the rewritten Markdown");
   });
@@ -31,10 +34,12 @@ describe("buildAssistantPrompt", () => {
       instruction: "Tighten this scene.",
       targetLabel: "scene.md",
       targetMarkdown: "Old line.",
+      projectFiles: [],
       context: [],
     });
 
     expect(prompt).toContain("Mode: Proposed diff edits");
+    expect(prompt).toContain("No project files are currently visible.");
     expect(prompt).toContain("No extra context selected.");
     expect(prompt).toContain("Return a unified diff");
   });
@@ -45,6 +50,7 @@ describe("buildAssistantPrompt", () => {
       instruction: "Find pacing problems.",
       targetLabel: "scene.md",
       targetMarkdown: "Old line.",
+      projectFiles: [],
       context: [],
     });
 

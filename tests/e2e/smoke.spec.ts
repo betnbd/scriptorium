@@ -14,8 +14,8 @@ test("renders the DraftAgent workspace", async ({ page }) => {
   await expect(
     page.getByRole("separator", { name: "Resize assistant pane" }),
   ).toBeVisible();
-  await expect(page.getByRole("button", { name: "Open ChatGPT" })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Open Claude" })).toBeVisible();
+  await expect(page.getByText(/OpenAI uses Codex CLI/)).toBeVisible();
+  await expect(page.getByRole("button", { name: "Send" })).toBeVisible();
   await expect(page.getByRole("alert")).toHaveCount(0);
 
   const filePane = page.locator(".file-pane");
