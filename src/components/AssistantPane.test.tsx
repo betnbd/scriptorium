@@ -17,7 +17,7 @@ describe("AssistantPane", () => {
       />,
     );
 
-    await user.type(screen.getByLabelText("Instruction"), "Make it sharper");
+    await user.type(screen.getByLabelText("Message"), "Make it sharper");
     await user.click(screen.getByRole("button", { name: "Send to OpenAI" }));
 
     expect(onSubmit).toHaveBeenCalledWith({
@@ -25,6 +25,7 @@ describe("AssistantPane", () => {
       mode: "rewrite",
       instruction: "Make it sharper",
     });
+    expect(screen.getByLabelText("Message")).toHaveValue("");
   });
 
   it("lets the user select provider and mode before sending", async () => {
@@ -45,7 +46,7 @@ describe("AssistantPane", () => {
       "anthropic-subscription",
     );
     await user.selectOptions(screen.getByLabelText("Mode"), "diff");
-    await user.type(screen.getByLabelText("Instruction"), "Show exact edits");
+    await user.type(screen.getByLabelText("Message"), "Show exact edits");
     await user.click(screen.getByRole("button", { name: "Send to Claude" }));
 
     expect(onSubmit).toHaveBeenCalledWith({
@@ -88,7 +89,7 @@ describe("AssistantPane", () => {
       />,
     );
 
-    expect(screen.getByText("How this works")).toBeInTheDocument();
+    expect(screen.getByText("Terminal-backed conversation")).toBeInTheDocument();
     expect(screen.getByText(/current file or selection/)).toBeInTheDocument();
   });
 
@@ -177,5 +178,24 @@ describe("AssistantPane", () => {
     );
 
     expect(screen.getByText("Imported assistant result.")).toBeInTheDocument();
+  });
+
+  it("renders the assistant pane as a terminal-backed conversation", () => {
+    render(
+      <AssistantPane
+        defaultProvider="anthropic-subscription"
+        messages={[
+          { role: "user", content: "Can you read this document?" },
+          { role: "assistant", content: "Yes. The glossary is readable." },
+        ]}
+        onSubmit={vi.fn()}
+        onImport={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText("Terminal-backed conversation")).toBeInTheDocument();
+    expect(screen.getByText("You")).toBeInTheDocument();
+    expect(screen.getByText("Claude")).toBeInTheDocument();
+    expect(screen.getByLabelText("Message")).toBeInTheDocument();
   });
 });

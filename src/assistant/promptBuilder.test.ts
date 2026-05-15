@@ -52,10 +52,39 @@ describe("buildAssistantPrompt", () => {
       targetMarkdown: "Old line.",
       projectFiles: [],
       context: [],
+      conversation: [],
     });
 
     expect(prompt).toContain("Mode: Suggestions only");
     expect(prompt).toContain("Return concise suggestions");
     expect(prompt).toContain("Do not rewrite the passage");
+  });
+
+  it("includes prior conversation turns for iterative CLI-backed chats", () => {
+    const prompt = buildAssistantPrompt({
+      mode: "suggestions",
+      instruction: "Can you explain the second point?",
+      targetLabel: "scene.md",
+      targetMarkdown: "Old line.",
+      projectFiles: [],
+      context: [],
+      conversation: [
+        {
+          role: "user",
+          content: "Anthropic via Claude Code / suggestions / scene.md\n\nRead this document.",
+        },
+        {
+          role: "assistant",
+          content: "The scene is clear, but the motive arrives too late.",
+        },
+      ],
+    });
+
+    expect(prompt).toContain("Conversation so far:");
+    expect(prompt).toContain("User: Read this document.");
+    expect(prompt).toContain(
+      "Assistant: The scene is clear, but the motive arrives too late.",
+    );
+    expect(prompt).toContain("Can you explain the second point?");
   });
 });

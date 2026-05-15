@@ -121,7 +121,7 @@ describe("App", () => {
   it("describes subscription providers as built-in CLI routes", () => {
     render(<App />);
 
-    expect(screen.getByText("How this works")).toBeInTheDocument();
+    expect(screen.getByText("Terminal-backed conversation")).toBeInTheDocument();
     expect(screen.getByText(/current file or selection/)).toBeInTheDocument();
   });
 
@@ -304,7 +304,7 @@ describe("App", () => {
       await screen.findByRole("button", { name: "Open chapter-1.md" }),
     );
     await user.click(screen.getByRole("button", { name: "Select Text" }));
-    await user.type(screen.getByLabelText("Instruction"), "Make this more tense");
+    await user.type(screen.getByLabelText("Message"), "Make this more tense");
     await user.click(screen.getByRole("button", { name: "Send to OpenAI" }));
 
     expect(tauriApiMock.sendCliAgentRequest).toHaveBeenCalledWith(
@@ -356,7 +356,7 @@ describe("App", () => {
       await screen.findByRole("button", { name: "Open chapter-1.md" }),
     );
     await user.selectOptions(screen.getByLabelText("Provider"), "lm-studio");
-    await user.type(screen.getByLabelText("Instruction"), "Rewrite locally");
+    await user.type(screen.getByLabelText("Message"), "Rewrite locally");
     await user.click(screen.getByRole("button", { name: "Send to LM Studio" }));
 
     expect(tauriApiMock.sendLmStudioRequest).toHaveBeenCalledWith(
@@ -488,13 +488,54 @@ describe("App", () => {
     await user.click(screen.getByRole("button", { name: "Edit Text" }));
     await user.click(screen.getByRole("button", { name: "Save" }));
     await user.click(screen.getByRole("button", { name: "Open chapter-1.md" }));
-    await user.type(screen.getByLabelText("Instruction"), "Tighten this");
+    await user.type(screen.getByLabelText("Message"), "Tighten this");
     await user.click(screen.getByRole("button", { name: "Send to OpenAI" }));
 
     expect(tauriApiMock.sendCliAgentRequest).toHaveBeenCalledWith(
       "openai-subscription",
       "/novel",
       expect.stringContaining("Changed lantern."),
+    );
+  });
+
+  it("sends follow-up CLI turns with prior conversation history", async () => {
+    const user = userEvent.setup();
+    const chapter = fileNode("chapter-1.md");
+    mockProjectFolder([chapter]);
+    mockMarkdownReads({
+      "chapter-1.md": "# Chapter 1\n\nOld text.",
+    });
+    tauriApiMock.sendCliAgentRequest
+      .mockResolvedValueOnce("The chapter is readable.")
+      .mockResolvedValueOnce("The opening image is the strongest part.");
+
+    render(<App />);
+
+    await user.click(screen.getByRole("button", { name: "Open Folder" }));
+    await user.click(
+      await screen.findByRole("button", { name: "Open chapter-1.md" }),
+    );
+    await user.selectOptions(screen.getByLabelText("Mode"), "suggestions");
+    await user.type(screen.getByLabelText("Message"), "Can you read this?");
+    await user.click(screen.getByRole("button", { name: "Send to OpenAI" }));
+    await screen.findByText("The chapter is readable.");
+    await user.type(screen.getByLabelText("Message"), "What is strongest?");
+    await user.click(screen.getByRole("button", { name: "Send to OpenAI" }));
+
+    expect(tauriApiMock.sendCliAgentRequest).toHaveBeenLastCalledWith(
+      "openai-subscription",
+      "/novel",
+      expect.stringContaining("Conversation so far:"),
+    );
+    expect(tauriApiMock.sendCliAgentRequest).toHaveBeenLastCalledWith(
+      "openai-subscription",
+      "/novel",
+      expect.stringContaining("User: Can you read this?"),
+    );
+    expect(tauriApiMock.sendCliAgentRequest).toHaveBeenLastCalledWith(
+      "openai-subscription",
+      "/novel",
+      expect.stringContaining("Assistant: The chapter is readable."),
     );
   });
 

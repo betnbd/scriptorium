@@ -48,12 +48,16 @@ struct AgentCommandSpec {
 }
 
 #[tauri::command]
-pub fn send_cli_agent_request(request: CliAgentRequest) -> Result<CliAgentResponse, String> {
-    let root = canonical_root(Path::new(&request.root_path))?;
-    let spec = command_spec_for_provider(&request.provider, &root)?;
-    let content = run_agent_command(spec, &root, &request.prompt)?;
+pub async fn send_cli_agent_request(request: CliAgentRequest) -> Result<CliAgentResponse, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let root = canonical_root(Path::new(&request.root_path))?;
+        let spec = command_spec_for_provider(&request.provider, &root)?;
+        let content = run_agent_command(spec, &root, &request.prompt)?;
 
-    Ok(CliAgentResponse { content })
+        Ok(CliAgentResponse { content })
+    })
+    .await
+    .map_err(|err| format!("Assistant request could not finish: {err}"))?
 }
 
 #[tauri::command]

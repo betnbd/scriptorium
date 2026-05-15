@@ -521,6 +521,7 @@ export default function App() {
         targetMarkdown,
         projectFiles: flattenProjectFilePaths(state.tree),
         context,
+        conversation: state.assistantMessages,
       });
       dispatch({
         type: "assistantMessageAdded",
@@ -583,7 +584,7 @@ export default function App() {
       expectedMarkdown !== undefined &&
       liveEditorRef.current.markdown !== expectedMarkdown
     ) {
-      showError("The open file changed before the LM Studio response returned.");
+      showError("The open file changed before the assistant response returned.");
       return;
     }
 
@@ -605,14 +606,22 @@ export default function App() {
         type: "assistantMessageAdded",
         message: {
           role: "assistant",
-          content:
-            parsed.kind === "suggestions"
-              ? parsed.suggestions
-              : parsed.kind === "diff"
-                ? "Applied proposed edits to the open file."
-                : "Applied rewrite to the open file.",
+          content: response.trim(),
         },
       });
+
+      if (parsed.kind !== "suggestions") {
+        dispatch({
+          type: "assistantMessageAdded",
+          message: {
+            role: "system",
+            content:
+              parsed.kind === "diff"
+                ? "Applied proposed edits to the open file."
+                : "Applied rewrite to the open file.",
+          },
+        });
+      }
     } catch (error) {
       showError(error);
     }

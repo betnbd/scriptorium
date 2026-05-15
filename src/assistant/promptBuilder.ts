@@ -1,4 +1,4 @@
-import type { AssistantMode, IndexedDocument } from "../types";
+import type { AssistantMessage, AssistantMode, IndexedDocument } from "../types";
 
 interface PromptInput {
   mode: AssistantMode;
@@ -7,6 +7,7 @@ interface PromptInput {
   targetMarkdown: string;
   projectFiles: string[];
   context: Pick<IndexedDocument, "relativePath" | "title" | "chunks">[];
+  conversation?: AssistantMessage[];
 }
 
 const modeLabels: Record<AssistantMode, string> = {
@@ -25,10 +26,15 @@ export function buildAssistantPrompt(input: PromptInput): string {
     )
     .join("\n\n");
 
+  const conversationText = formatConversation(input.conversation ?? []);
+
   return [
     "You are helping revise a novel draft.",
     `Mode: ${modeLabels[input.mode]}`,
     `Instruction: ${input.instruction.trim() || "Use your best editorial judgment."}`,
+    "",
+    "Conversation so far:",
+    conversationText || "No prior turns in this session.",
     "",
     `Target: ${input.targetLabel}`,
     "```markdown",
@@ -43,6 +49,36 @@ export function buildAssistantPrompt(input: PromptInput): string {
     "",
     outputInstructions(input.mode),
   ].join("\n");
+}
+
+function formatConversation(messages: AssistantMessage[]): string {
+  return messages
+    .filter((message) => message.role !== "system")
+    .slice(-8)
+    .map(
+      (message) =>
+        `${formatRole(message.role)}: ${formatMessageContent(message.content)}`,
+    )
+    .join("\n\n");
+}
+
+function formatRole(role: AssistantMessage["role"]): string {
+  if (role === "user") {
+    return "User";
+  }
+
+  if (role === "assistant") {
+    return "Assistant";
+  }
+
+  return "DraftAgent";
+}
+
+function formatMessageContent(content: string): string {
+  const trimmed = content.trim();
+  const parts = trimmed.split(/\n{2,}/);
+
+  return (parts[parts.length - 1] || trimmed).trim();
 }
 
 function formatProjectFiles(files: string[]): string {

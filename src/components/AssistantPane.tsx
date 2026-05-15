@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type {
   AssistantMessage,
   AssistantMode,
@@ -42,6 +42,7 @@ export function AssistantPane({
   const [mode, setMode] = useState<AssistantMode>("rewrite");
   const [instruction, setInstruction] = useState("");
   const [importText, setImportText] = useState("");
+  const historyRef = useRef<HTMLDivElement | null>(null);
   const providerStatus =
     provider === "lm-studio" ? null : providerStatuses[provider];
   const isProviderBlocked =
@@ -49,6 +50,20 @@ export function AssistantPane({
     providerStatus !== undefined &&
     (!providerStatus.installed || !providerStatus.authenticated);
   const sendDisabled = isRunning || !canSubmit || isProviderBlocked;
+  const assistantLabel = assistantDisplayLabel(provider);
+
+  useEffect(() => {
+    const history = historyRef.current;
+
+    if (history) {
+      history.scrollTop = history.scrollHeight;
+    }
+  }, [messages.length, isRunning]);
+
+  function submitMessage() {
+    onSubmit({ provider, mode, instruction });
+    setInstruction("");
+  }
 
   return (
     <aside className="assistant-pane">
@@ -57,12 +72,42 @@ export function AssistantPane({
       </header>
 
       <div className="assistant-provider-note">
-        <strong>How this works</strong>
+        <strong>Terminal-backed conversation</strong>
         <span>
-          Open a Markdown file, choose a provider, write an instruction, then
-          send. DraftAgent gives the agent the current file or selection plus
-          relevant project context, then applies rewrites or diffs in the editor.
+          DraftAgent runs the selected provider CLI in the background, sends the
+          current file or selection with relevant context, captures the response,
+          and applies requested rewrites or diffs in the editor.
         </span>
+      </div>
+
+      <div
+        aria-label="Assistant history"
+        aria-live="polite"
+        className="assistant-history"
+        ref={historyRef}
+      >
+        {messages.length > 0 ? (
+          messages.map((message, index) => (
+            <article
+              className={`assistant-message assistant-message-${message.role}`}
+              key={`${message.role}-${index}`}
+            >
+              <div className="assistant-message-label">
+                {messageLabel(message.role, assistantLabel)}
+              </div>
+              <pre>{message.content}</pre>
+            </article>
+          ))
+        ) : (
+          <div className="assistant-empty">
+            Ask about the open file, request a rewrite, or ask for proposed edits.
+          </div>
+        )}
+        {isRunning ? (
+          <div className="assistant-run-status" role="status">
+            Running {assistantLabel} in the background...
+          </div>
+        ) : null}
       </div>
 
       <div className="assistant-controls">
@@ -106,7 +151,7 @@ export function AssistantPane({
         </label>
 
         <label>
-          Instruction
+          Message
           <textarea
             value={instruction}
             onChange={(event) => setInstruction(event.target.value)}
@@ -117,7 +162,7 @@ export function AssistantPane({
         <button
           type="button"
           disabled={sendDisabled}
-          onClick={() => onSubmit({ provider, mode, instruction })}
+          onClick={submitMessage}
         >
           {sendButtonLabel({ isRunning, canSubmit, isProviderBlocked, provider })}
         </button>
@@ -139,20 +184,32 @@ export function AssistantPane({
         </button>
       </details>
 
-      {messages.length > 0 ? (
-        <div className="assistant-history" aria-label="Assistant history">
-          {messages.map((message, index) => (
-            <article
-              className="assistant-message"
-              key={`${message.role}-${index}`}
-            >
-              <pre>{message.content}</pre>
-            </article>
-          ))}
-        </div>
-      ) : null}
     </aside>
   );
+}
+
+function assistantDisplayLabel(provider: ProviderId) {
+  if (provider === "anthropic-subscription") {
+    return "Claude";
+  }
+
+  if (provider === "openai-subscription") {
+    return "OpenAI";
+  }
+
+  return "LM Studio";
+}
+
+function messageLabel(role: AssistantMessage["role"], assistantLabel: string) {
+  if (role === "user") {
+    return "You";
+  }
+
+  if (role === "assistant") {
+    return assistantLabel;
+  }
+
+  return "DraftAgent";
 }
 
 function providerStatusLabel(

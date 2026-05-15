@@ -16,7 +16,7 @@ test("renders the DraftAgent workspace", async ({ page }) => {
   await expect(
     page.getByRole("separator", { name: "Resize assistant pane" }),
   ).toBeVisible();
-  await expect(page.getByText("How this works")).toBeVisible();
+  await expect(page.getByText("Terminal-backed conversation")).toBeVisible();
   await expect(
     page.getByRole("button", { name: "Open a file to send" }),
   ).toBeVisible();

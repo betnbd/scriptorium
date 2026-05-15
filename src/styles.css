@@ -204,6 +204,16 @@ select {
   gap: 12px;
 }
 
+.assistant-history {
+  min-height: 180px;
+  max-height: 34vh;
+  overflow: auto;
+  border: 1px solid #d9dee7;
+  border-radius: 8px;
+  padding: 10px;
+  background: #ffffff;
+}
+
 .assistant-provider-note {
   display: flex;
   flex-direction: column;
@@ -317,9 +327,27 @@ select {
 
 .assistant-message {
   border: 1px solid #d9dee7;
-  border-radius: 6px;
+  border-radius: 8px;
   padding: 10px;
-  background: #ffffff;
+  background: #f8fafc;
+}
+
+.assistant-message-assistant {
+  border-color: #c8d9ee;
+  background: #f2f7fd;
+}
+
+.assistant-message-system {
+  border-color: #d9dee7;
+  background: #f6f7f9;
+}
+
+.assistant-message-label {
+  margin-bottom: 6px;
+  color: #697386;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.2;
 }
 
 .assistant-message pre {
@@ -328,6 +356,26 @@ select {
   color: #3a4048;
   font: inherit;
   line-height: 1.45;
+}
+
+.assistant-empty {
+  margin: auto;
+  max-width: 240px;
+  color: #697386;
+  font-size: 13px;
+  line-height: 1.4;
+  text-align: center;
+}
+
+.assistant-run-status {
+  border: 1px solid #c8d9ee;
+  border-radius: 8px;
+  padding: 9px 10px;
+  color: #28517f;
+  background: #eef6ff;
+  font-size: 13px;
+  font-weight: 650;
+  line-height: 1.35;
 }
 
 .file-tree {
