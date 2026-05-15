@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { createTauriApi } from "./tauri";
+import { defaultSettings } from "../state/appReducer";
 import type { FileNode } from "../types";
 
 describe("createTauriApi", () => {
@@ -96,5 +97,61 @@ describe("createTauriApi", () => {
       },
     });
     expect(result).toBe("Local response.");
+  });
+
+  it("loads and saves app settings with camelCase settings payloads", async () => {
+    const savedSettings = {
+      ...defaultSettings,
+      defaultProvider: "anthropic-subscription" as const,
+      editorFontSize: 20,
+    };
+    const invoke = vi
+      .fn()
+      .mockResolvedValueOnce(savedSettings)
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce(undefined);
+    const api = createTauriApi({
+      invoke,
+      open: vi.fn(),
+      writeText: vi.fn(),
+      openUrl: vi.fn(),
+    });
+
+    await expect(api.loadSettings()).resolves.toEqual(savedSettings);
+    await expect(api.loadProjectEnv("/novel")).resolves.toBeNull();
+    await api.saveSettings(savedSettings);
+
+    expect(invoke).toHaveBeenNthCalledWith(1, "load_settings");
+    expect(invoke).toHaveBeenNthCalledWith(2, "load_project_env", {
+      rootPath: "/novel",
+    });
+    expect(invoke).toHaveBeenNthCalledWith(3, "save_settings", {
+      settings: savedSettings,
+    });
+  });
+
+  it("passes tree scan options to the workspace command", async () => {
+    const invoke = vi.fn().mockResolvedValue([]);
+    const api = createTauriApi({
+      invoke,
+      open: vi.fn(),
+      writeText: vi.fn(),
+      openUrl: vi.fn(),
+    });
+
+    await api.readProjectTree("/novel", {
+      ignoreHidden: false,
+      ignoreLargeFiles: false,
+      ignoreBinaryFiles: true,
+    });
+
+    expect(invoke).toHaveBeenCalledWith("read_project_tree", {
+      rootPath: "/novel",
+      options: {
+        ignoreHidden: false,
+        ignoreLargeFiles: false,
+        ignoreBinaryFiles: true,
+      },
+    });
   });
 });

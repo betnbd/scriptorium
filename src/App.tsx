@@ -1,4 +1,5 @@
-import { useReducer, useRef, useState } from "react";
+import { useEffect, useReducer, useRef, useState } from "react";
+import type { CSSProperties } from "react";
 import { tauriApi } from "./api/tauri";
 import { applyAssistantResult } from "./assistant/applyResult";
 import { buildAssistantPrompt } from "./assistant/promptBuilder";
@@ -9,10 +10,16 @@ import {
 } from "./components/AssistantPane";
 import { EditorPane } from "./components/EditorPane";
 import { FileTree } from "./components/FileTree";
+import { SettingsDialog } from "./components/SettingsDialog";
 import { buildIndex, selectRelevantContext } from "./context/indexer";
 import { normalizeMarkdownForSave } from "./editor/markdown";
 import { appReducer, initialAppState } from "./state/appReducer";
-import type { AssistantMode, FileNode, IndexedDocument } from "./types";
+import type {
+  AppSettings,
+  AssistantMode,
+  FileNode,
+  IndexedDocument,
+} from "./types";
 import "./styles.css";
 
 export default function App() {
@@ -21,6 +28,8 @@ export default function App() {
     null,
   );
   const [assistantMode, setAssistantMode] = useState<AssistantMode>("rewrite");
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [hasLocalSettings, setHasLocalSettings] = useState(false);
   const liveEditorRef = useRef<{
     relativePath: string | null;
     markdown: string;
@@ -29,14 +38,42 @@ export default function App() {
     relativePath: state.openFile?.relativePath ?? null,
     markdown: state.openMarkdown,
   };
+  const editorSettingsStyle = {
+    "--editor-font-size": `${state.settings.editorFontSize}px`,
+    "--editor-line-width": `${state.settings.editorLineWidth}px`,
+  } as CSSProperties;
+
+  useEffect(() => {
+    let isMounted = true;
+
+    void tauriApi
+      .loadSettings()
+      .then((settings) => {
+        if (isMounted && settings) {
+          setHasLocalSettings(true);
+          dispatch({ type: "settingsLoaded", settings });
+        }
+      })
+      .catch((error) => {
+        console.error(error);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   async function refreshTree(rootPath = state.rootPath) {
     if (!rootPath) {
       return [];
     }
 
-    const tree = await tauriApi.readProjectTree(rootPath);
-    const indexedDocuments = await buildMarkdownIndex(rootPath, tree);
+    const tree = await tauriApi.readProjectTree(rootPath, state.settings);
+    const indexedDocuments = await buildMarkdownIndex(
+      rootPath,
+      tree,
+      state.settings,
+    );
 
     dispatch({
       type: "treeUpdated",
@@ -58,18 +95,32 @@ export default function App() {
       return;
     }
 
+    const projectSettings = await loadProjectEnvSettings(project.rootPath, state.settings);
+    const effectiveSettings = projectSettings
+      ? hasLocalSettings
+        ? { ...projectSettings, ...state.settings }
+        : { ...state.settings, ...projectSettings }
+      : state.settings;
+    const tree = await tauriApi.readProjectTree(
+      project.rootPath,
+      effectiveSettings,
+    );
     const indexedDocuments = await buildMarkdownIndex(
       project.rootPath,
-      project.tree,
+      tree,
+      effectiveSettings,
     );
 
     setAssistantSelection(null);
     dispatch({
       type: "projectOpened",
       rootPath: project.rootPath,
-      tree: project.tree,
+      tree,
       indexedDocuments,
     });
+    if (projectSettings) {
+      dispatch({ type: "settingsLoaded", settings: effectiveSettings });
+    }
   }
 
   async function openFile(path: string) {
@@ -112,6 +163,26 @@ export default function App() {
         type: "indexedDocumentUpdated",
         document: indexMarkdownFile(openFile, markdown),
       });
+    }
+  }
+
+  async function saveSettings(settings: AppSettings) {
+    try {
+      await tauriApi.saveSettings(settings);
+      setHasLocalSettings(true);
+      dispatch({ type: "settingsLoaded", settings });
+      setIsSettingsOpen(false);
+      if (state.rootPath) {
+        const tree = await tauriApi.readProjectTree(state.rootPath, settings);
+        const indexedDocuments = await buildMarkdownIndex(
+          state.rootPath,
+          tree,
+          settings,
+        );
+        dispatch({ type: "treeUpdated", tree, indexedDocuments });
+      }
+    } catch (error) {
+      window.alert(error instanceof Error ? error.message : String(error));
     }
   }
 
@@ -354,10 +425,16 @@ export default function App() {
   }
 
   return (
-    <main className="app-shell">
+    <main className="app-shell" style={editorSettingsStyle}>
       <aside className="file-pane">
         <header className="app-brand">
           <h1>DraftAgent</h1>
+          <button type="button" onClick={() => setIsSettingsOpen(true)}>
+            Settings
+          </button>
+          <button type="button" onClick={() => void refreshTree()}>
+            Reindex
+          </button>
         </header>
         <FileTree
           rootPath={state.rootPath}
@@ -383,6 +460,7 @@ export default function App() {
         onSelectionChange={setAssistantSelection}
       />
       <AssistantPane
+        key={state.settings.defaultProvider}
         defaultProvider={state.settings.defaultProvider}
         messages={state.assistantMessages}
         onSubmit={(request) => {
@@ -390,6 +468,14 @@ export default function App() {
         }}
         onImport={importAssistantResponse}
       />
+      {isSettingsOpen ? (
+        <SettingsDialog
+          settings={state.settings}
+          onSave={saveSettings}
+          onClose={() => setIsSettingsOpen(false)}
+          onReindex={() => void refreshTree()}
+        />
+      ) : null}
     </main>
   );
 }
@@ -461,8 +547,9 @@ function findFileNode(nodes: FileNode[], relativePath: string): FileNode | null 
 async function buildMarkdownIndex(
   rootPath: string,
   tree: FileNode[],
+  settings: AppSettings,
 ): Promise<IndexedDocument[]> {
-  const reads = flattenMarkdownFiles(tree).map(async (file) => {
+  const reads = flattenIndexableMarkdownFiles(tree, settings).map(async (file) => {
     const opened = await tauriApi.readMarkdownFile(rootPath, file.relativePath);
     return indexMarkdownFile(opened.file, opened.markdown);
   });
@@ -473,13 +560,24 @@ async function buildMarkdownIndex(
   );
 }
 
-function flattenMarkdownFiles(nodes: FileNode[]): FileNode[] {
+function flattenIndexableMarkdownFiles(
+  nodes: FileNode[],
+  settings: AppSettings,
+): FileNode[] {
   return nodes.flatMap((node) => {
     if (node.kind === "directory") {
-      return flattenMarkdownFiles(node.children ?? []);
+      return flattenIndexableMarkdownFiles(node.children ?? [], settings);
     }
 
-    return node.isMarkdown ? [node] : [];
+    if (!node.isMarkdown) {
+      return [];
+    }
+
+    if (settings.ignoreLargeFiles && node.size > 2_000_000) {
+      return [];
+    }
+
+    return [node];
   });
 }
 
@@ -492,4 +590,96 @@ function indexMarkdownFile(file: FileNode, markdown: string): IndexedDocument {
       modifiedAt: file.modifiedAt,
     },
   ])[0];
+}
+
+async function loadProjectEnvSettings(
+  rootPath: string,
+  settings: AppSettings,
+): Promise<Partial<AppSettings> | null> {
+  if (!settings.projectEnvEnabled) {
+    return null;
+  }
+
+  try {
+    const envText = await tauriApi.loadProjectEnv(rootPath);
+    return envText ? parseProjectEnvSettings(envText) : null;
+  } catch {
+    return null;
+  }
+}
+
+function parseProjectEnvSettings(markdown: string): Partial<AppSettings> | null {
+  const values = Object.fromEntries(
+    markdown
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter((line) => line && !line.startsWith("#") && line.includes("="))
+      .map((line) => {
+        const [key, ...rest] = line.split("=");
+        return [key.trim(), rest.join("=").trim().replace(/^["']|["']$/g, "")];
+      }),
+  );
+  const parsed: Partial<AppSettings> = {};
+
+  if (isProviderId(values.DRAFTAGENT_DEFAULT_PROVIDER)) {
+    parsed.defaultProvider = values.DRAFTAGENT_DEFAULT_PROVIDER;
+  }
+  if (values.DRAFTAGENT_OPENAI_URL) {
+    parsed.openaiUrl = values.DRAFTAGENT_OPENAI_URL;
+  }
+  if (values.DRAFTAGENT_ANTHROPIC_URL) {
+    parsed.anthropicUrl = values.DRAFTAGENT_ANTHROPIC_URL;
+  }
+  if (values.DRAFTAGENT_LM_STUDIO_BASE_URL) {
+    parsed.lmStudioBaseUrl = values.DRAFTAGENT_LM_STUDIO_BASE_URL;
+  }
+  if (values.DRAFTAGENT_LM_STUDIO_MODEL) {
+    parsed.lmStudioModel = values.DRAFTAGENT_LM_STUDIO_MODEL;
+  }
+  const editorFontSize = Number(values.DRAFTAGENT_EDITOR_FONT_SIZE);
+  if (Number.isFinite(editorFontSize)) {
+    parsed.editorFontSize = editorFontSize;
+  }
+  const editorLineWidth = Number(values.DRAFTAGENT_EDITOR_LINE_WIDTH);
+  if (Number.isFinite(editorLineWidth)) {
+    parsed.editorLineWidth = editorLineWidth;
+  }
+  const ignoreHidden = parseEnvBoolean(values.DRAFTAGENT_IGNORE_HIDDEN);
+  if (ignoreHidden !== null) {
+    parsed.ignoreHidden = ignoreHidden;
+  }
+  const ignoreLargeFiles = parseEnvBoolean(values.DRAFTAGENT_IGNORE_LARGE_FILES);
+  if (ignoreLargeFiles !== null) {
+    parsed.ignoreLargeFiles = ignoreLargeFiles;
+  }
+  const ignoreBinaryFiles = parseEnvBoolean(values.DRAFTAGENT_IGNORE_BINARY_FILES);
+  if (ignoreBinaryFiles !== null) {
+    parsed.ignoreBinaryFiles = ignoreBinaryFiles;
+  }
+
+  return Object.keys(parsed).length > 0 ? parsed : null;
+}
+
+function isProviderId(value: string | undefined): value is AppSettings["defaultProvider"] {
+  return (
+    value === "openai-subscription" ||
+    value === "anthropic-subscription" ||
+    value === "lm-studio"
+  );
+}
+
+function parseEnvBoolean(value: string | undefined): boolean | null {
+  if (!value) {
+    return null;
+  }
+
+  if (["1", "true", "yes", "on"].includes(value.toLowerCase())) {
+    return true;
+  }
+
+  if (["0", "false", "no", "off"].includes(value.toLowerCase())) {
+    return false;
+  }
+
+  return null;
 }

@@ -2,15 +2,30 @@ use crate::model::{FileKind, FileNode, OpenFile, WriteFileRequest};
 use std::ffi::OsStr;
 use std::fs;
 use std::fs::OpenOptions;
+use std::io::Read;
 use std::path::Component;
 use std::path::{Path, PathBuf};
 use std::time::UNIX_EPOCH;
 
 const LARGE_FILE_LIMIT_BYTES: u64 = 2_000_000;
 
+#[derive(Debug, Clone, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TreeOptions {
+    #[serde(default = "default_true")]
+    pub ignore_hidden: bool,
+    #[serde(default = "default_true")]
+    pub ignore_large_files: bool,
+    #[serde(default = "default_true")]
+    pub ignore_binary_files: bool,
+}
+
 #[tauri::command]
-pub fn read_project_tree(root_path: String) -> Result<Vec<FileNode>, String> {
-    scan_tree(Path::new(&root_path))
+pub fn read_project_tree(
+    root_path: String,
+    options: Option<TreeOptions>,
+) -> Result<Vec<FileNode>, String> {
+    scan_tree_with_options(Path::new(&root_path), options.unwrap_or_default())
 }
 
 #[tauri::command]
@@ -18,7 +33,7 @@ pub fn read_markdown_file(root_path: String, file_path: String) -> Result<OpenFi
     let root = canonical_root(Path::new(&root_path))?;
     let file = ensure_inside_root(&root, Path::new(&file_path))?;
 
-    let node = node_from_path(&root, &file)?;
+    let node = node_from_path(&root, &file, &TreeOptions::default())?;
     if !node.is_markdown {
         return Err("only Markdown files can be opened in the editor".to_string());
     }
@@ -102,9 +117,14 @@ pub fn move_entry(
     fs::rename(source, target).map_err(|err| err.to_string())
 }
 
-pub fn scan_tree(root: &Path) -> Result<Vec<FileNode>, String> {
+#[cfg(test)]
+fn scan_tree(root: &Path) -> Result<Vec<FileNode>, String> {
+    scan_tree_with_options(root, TreeOptions::default())
+}
+
+pub fn scan_tree_with_options(root: &Path, options: TreeOptions) -> Result<Vec<FileNode>, String> {
     let root = canonical_root(root)?;
-    scan_tree_from_root(&root, &root)
+    scan_tree_from_root(&root, &root, &options)
 }
 
 pub fn ensure_inside_root(root: &Path, file_path: &Path) -> Result<PathBuf, String> {
@@ -212,7 +232,11 @@ fn validate_entry_name(name: &str) -> Result<(), String> {
     Ok(())
 }
 
-fn scan_tree_from_root(root: &Path, directory: &Path) -> Result<Vec<FileNode>, String> {
+fn scan_tree_from_root(
+    root: &Path,
+    directory: &Path,
+    options: &TreeOptions,
+) -> Result<Vec<FileNode>, String> {
     if !directory.is_dir() {
         return Err("project root is not a directory".to_string());
     }
@@ -221,10 +245,10 @@ fn scan_tree_from_root(root: &Path, directory: &Path) -> Result<Vec<FileNode>, S
     for entry in fs::read_dir(directory).map_err(|err| err.to_string())? {
         let entry = entry.map_err(|err| err.to_string())?;
         let path = entry.path();
-        if should_skip(&path) {
+        if should_skip(&path, options) {
             continue;
         }
-        nodes.push(node_from_path(root, &path)?);
+        nodes.push(node_from_path(root, &path, options)?);
     }
 
     nodes.sort_by(|a, b| {
@@ -236,7 +260,7 @@ fn scan_tree_from_root(root: &Path, directory: &Path) -> Result<Vec<FileNode>, S
     Ok(nodes)
 }
 
-fn node_from_path(root: &Path, path: &Path) -> Result<FileNode, String> {
+fn node_from_path(root: &Path, path: &Path, options: &TreeOptions) -> Result<FileNode, String> {
     let metadata = fs::symlink_metadata(path).map_err(|err| err.to_string())?;
     let kind = if metadata.is_dir() {
         FileKind::Directory
@@ -244,7 +268,7 @@ fn node_from_path(root: &Path, path: &Path) -> Result<FileNode, String> {
         FileKind::File
     };
     let children = if metadata.is_dir() {
-        Some(scan_tree_from_root(root, path)?)
+        Some(scan_tree_from_root(root, path, options)?)
     } else {
         None
     };
@@ -287,21 +311,44 @@ fn canonical_root(root: &Path) -> Result<PathBuf, String> {
     }
 }
 
-fn should_skip(path: &Path) -> bool {
+fn should_skip(path: &Path, options: &TreeOptions) -> bool {
     let file_name = path
         .file_name()
         .and_then(|name| name.to_str())
         .unwrap_or("");
-    if file_name.starts_with('.') {
+    if options.ignore_hidden && file_name.starts_with('.') {
         return true;
     }
 
     fs::symlink_metadata(path)
         .map(|metadata| {
             metadata.file_type().is_symlink()
-                || (metadata.is_file() && metadata.len() > LARGE_FILE_LIMIT_BYTES)
+                || (options.ignore_large_files
+                    && metadata.is_file()
+                    && metadata.len() > LARGE_FILE_LIMIT_BYTES)
+                || (options.ignore_binary_files
+                    && metadata.is_file()
+                    && is_probably_binary(path, metadata.len()))
         })
         .unwrap_or(false)
+}
+
+fn is_probably_binary(path: &Path, size: u64) -> bool {
+    if size == 0 {
+        return false;
+    }
+
+    let mut file = match fs::File::open(path) {
+        Ok(file) => file,
+        Err(_) => return true,
+    };
+    let mut sample = [0; 1024];
+    let bytes_read = match file.read(&mut sample) {
+        Ok(bytes_read) => bytes_read,
+        Err(_) => return true,
+    };
+
+    sample[..bytes_read].contains(&0)
 }
 
 fn extension(path: &Path) -> String {
@@ -309,6 +356,20 @@ fn extension(path: &Path) -> String {
         .and_then(|ext| ext.to_str())
         .unwrap_or("")
         .to_lowercase()
+}
+
+fn default_true() -> bool {
+    true
+}
+
+impl Default for TreeOptions {
+    fn default() -> Self {
+        Self {
+            ignore_hidden: true,
+            ignore_large_files: true,
+            ignore_binary_files: true,
+        }
+    }
 }
 
 #[cfg(test)]
@@ -346,6 +407,39 @@ mod tests {
         assert!(!cover.is_markdown);
         assert_eq!(drafts.kind, FileKind::Directory);
         assert!(scene.is_markdown);
+    }
+
+    #[test]
+    fn tree_scan_options_control_hidden_large_and_binary_files() {
+        let root = temp_root();
+        fs::write(root.path().join(".hidden.md"), "# Hidden").unwrap();
+        fs::write(root.path().join("chapter.md"), "# Chapter").unwrap();
+        fs::write(root.path().join("binary.bin"), [0, 159, 146, 150]).unwrap();
+        fs::write(
+            root.path().join("large.md"),
+            "x".repeat((LARGE_FILE_LIMIT_BYTES + 1) as usize),
+        )
+        .unwrap();
+
+        let default_tree = scan_tree(root.path()).unwrap();
+        assert!(default_tree.iter().any(|node| node.name == "chapter.md"));
+        assert!(!default_tree.iter().any(|node| node.name == ".hidden.md"));
+        assert!(!default_tree.iter().any(|node| node.name == "binary.bin"));
+        assert!(!default_tree.iter().any(|node| node.name == "large.md"));
+
+        let permissive_tree = scan_tree_with_options(
+            root.path(),
+            TreeOptions {
+                ignore_hidden: false,
+                ignore_large_files: false,
+                ignore_binary_files: false,
+            },
+        )
+        .unwrap();
+
+        assert!(permissive_tree.iter().any(|node| node.name == ".hidden.md"));
+        assert!(permissive_tree.iter().any(|node| node.name == "binary.bin"));
+        assert!(permissive_tree.iter().any(|node| node.name == "large.md"));
     }
 
     #[test]

@@ -2,7 +2,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { writeText } from "@tauri-apps/plugin-clipboard-manager";
 import { open } from "@tauri-apps/plugin-dialog";
 import { open as openUrl } from "@tauri-apps/plugin-shell";
-import type { FileNode, OpenFile } from "../types";
+import type { AppSettings, FileNode, OpenFile } from "../types";
 
 type Invoke = <T>(command: string, args?: Record<string, unknown>) => Promise<T>;
 type OpenDialog = (options: {
@@ -21,7 +21,13 @@ export interface TauriApiDeps {
 
 export interface TauriApi {
   pickProjectFolder(): Promise<{ rootPath: string; tree: FileNode[] } | null>;
-  readProjectTree(rootPath: string): Promise<FileNode[]>;
+  readProjectTree(
+    rootPath: string,
+    options?: Pick<
+      AppSettings,
+      "ignoreHidden" | "ignoreLargeFiles" | "ignoreBinaryFiles"
+    >,
+  ): Promise<FileNode[]>;
   readMarkdownFile(rootPath: string, filePath: string): Promise<OpenFile>;
   writeMarkdownFile(
     rootPath: string,
@@ -39,6 +45,9 @@ export interface TauriApi {
   ): Promise<void>;
   copyText(text: string): Promise<void>;
   openExternal(url: string): Promise<void>;
+  loadSettings(): Promise<AppSettings | null>;
+  loadProjectEnv(rootPath: string): Promise<string | null>;
+  saveSettings(settings: AppSettings): Promise<void>;
   sendLmStudioRequest(
     baseUrl: string,
     model: string,
@@ -47,8 +56,26 @@ export interface TauriApi {
 }
 
 export function createTauriApi(deps: TauriApiDeps): TauriApi {
-  const readProjectTree = (rootPath: string) =>
-    deps.invoke<FileNode[]>("read_project_tree", { rootPath });
+  const readProjectTree = (
+    rootPath: string,
+    options?: Pick<
+      AppSettings,
+      "ignoreHidden" | "ignoreLargeFiles" | "ignoreBinaryFiles"
+    >,
+  ) =>
+    deps.invoke<FileNode[]>(
+      "read_project_tree",
+      options
+        ? {
+            rootPath,
+            options: {
+              ignoreHidden: options.ignoreHidden,
+              ignoreLargeFiles: options.ignoreLargeFiles,
+              ignoreBinaryFiles: options.ignoreBinaryFiles,
+            },
+          }
+        : { rootPath },
+    );
 
   return {
     async pickProjectFolder() {
@@ -63,8 +90,8 @@ export function createTauriApi(deps: TauriApiDeps): TauriApi {
       return { rootPath: selected, tree };
     },
 
-    readProjectTree(rootPath) {
-      return readProjectTree(rootPath);
+    readProjectTree(rootPath, options) {
+      return readProjectTree(rootPath, options);
     },
 
     readMarkdownFile(rootPath, filePath) {
@@ -107,6 +134,18 @@ export function createTauriApi(deps: TauriApiDeps): TauriApi {
 
     openExternal(url) {
       return deps.openUrl(url);
+    },
+
+    loadSettings() {
+      return deps.invoke<AppSettings | null>("load_settings");
+    },
+
+    loadProjectEnv(rootPath) {
+      return deps.invoke<string | null>("load_project_env", { rootPath });
+    },
+
+    saveSettings(settings) {
+      return deps.invoke<void>("save_settings", { settings });
     },
 
     async sendLmStudioRequest(baseUrl, model, prompt) {

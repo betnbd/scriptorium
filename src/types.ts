@@ -43,6 +43,8 @@ export interface AppSettings {
   editorLineWidth: number;
   ignoreHidden: boolean;
   ignoreLargeFiles: boolean;
+  ignoreBinaryFiles: boolean;
+  projectEnvEnabled: boolean;
 }
 
 export interface OpenFile {

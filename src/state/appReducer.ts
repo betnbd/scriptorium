@@ -49,6 +49,8 @@ export const defaultSettings: AppSettings = {
   editorLineWidth: 760,
   ignoreHidden: true,
   ignoreLargeFiles: true,
+  ignoreBinaryFiles: true,
+  projectEnvEnabled: true,
 };
 
 export const initialAppState: AppState = {

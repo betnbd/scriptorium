@@ -17,6 +17,9 @@ const tauriApiMock = vi.hoisted(() => ({
   copyText: vi.fn(),
   openExternal: vi.fn(),
   sendLmStudioRequest: vi.fn(),
+  loadSettings: vi.fn(),
+  loadProjectEnv: vi.fn(),
+  saveSettings: vi.fn(),
 }));
 
 vi.mock("./api/tauri", () => ({
@@ -82,6 +85,12 @@ describe("App", () => {
     tauriApiMock.copyText.mockReset();
     tauriApiMock.openExternal.mockReset();
     tauriApiMock.sendLmStudioRequest.mockReset();
+    tauriApiMock.loadSettings.mockReset();
+    tauriApiMock.loadProjectEnv.mockReset();
+    tauriApiMock.saveSettings.mockReset();
+    tauriApiMock.loadSettings.mockResolvedValue(null);
+    tauriApiMock.loadProjectEnv.mockResolvedValue(null);
+    tauriApiMock.saveSettings.mockResolvedValue(undefined);
   });
 
   afterEach(() => {
@@ -96,13 +105,88 @@ describe("App", () => {
     expect(screen.getByText("Assistant")).toBeInTheDocument();
   });
 
+  it("opens settings, saves changes, and updates provider workflow", async () => {
+    const user = userEvent.setup();
+
+    render(<App />);
+
+    await user.click(screen.getByRole("button", { name: "Settings" }));
+    await user.selectOptions(
+      screen.getByLabelText("Default provider"),
+      "anthropic-subscription",
+    );
+    await user.clear(screen.getByLabelText("Anthropic URL"));
+    await user.type(screen.getByLabelText("Anthropic URL"), "https://claude.ai/chat");
+    await user.click(screen.getByText("Save settings"));
+
+    expect(tauriApiMock.saveSettings).toHaveBeenCalledWith(
+      expect.objectContaining({
+        defaultProvider: "anthropic-subscription",
+        anthropicUrl: "https://claude.ai/chat",
+      }),
+    );
+    expect(screen.queryByRole("dialog", { name: "Settings" })).not.toBeInTheDocument();
+    expect(screen.getByLabelText("Provider")).toHaveValue("anthropic-subscription");
+  });
+
+  it("loads project env preferences when opening a folder", async () => {
+    const user = userEvent.setup();
+    const chapter = fileNode("chapter-1.md");
+    mockProjectFolder([chapter]);
+    tauriApiMock.loadProjectEnv.mockResolvedValueOnce(
+      [
+        "DRAFTAGENT_DEFAULT_PROVIDER=anthropic-subscription",
+        "DRAFTAGENT_ANTHROPIC_URL=https://claude.example/new",
+      ].join("\n"),
+    );
+    mockMarkdownReads({
+      "chapter-1.md": "# Chapter 1",
+    });
+
+    render(<App />);
+
+    await user.click(screen.getByRole("button", { name: "Open Folder" }));
+
+    expect(tauriApiMock.loadProjectEnv).toHaveBeenCalledWith("/novel");
+    expect(screen.getByLabelText("Provider")).toHaveValue("anthropic-subscription");
+  });
+
+  it("keeps saved app-local settings ahead of project env preferences", async () => {
+    const user = userEvent.setup();
+    const chapter = fileNode("chapter-1.md");
+    tauriApiMock.loadSettings.mockResolvedValueOnce({
+      defaultProvider: "openai-subscription",
+      openaiUrl: "https://chatgpt.local/",
+      anthropicUrl: "https://claude.local/",
+      lmStudioBaseUrl: "http://127.0.0.1:1234/v1",
+      lmStudioModel: "local-model",
+      editorFontSize: 18,
+      editorLineWidth: 760,
+      ignoreHidden: true,
+      ignoreLargeFiles: true,
+      ignoreBinaryFiles: true,
+      projectEnvEnabled: true,
+    });
+    mockProjectFolder([chapter]);
+    tauriApiMock.loadProjectEnv.mockResolvedValueOnce(
+      "DRAFTAGENT_DEFAULT_PROVIDER=anthropic-subscription",
+    );
+    mockMarkdownReads({
+      "chapter-1.md": "# Chapter 1",
+    });
+
+    render(<App />);
+
+    await screen.findByText("DraftAgent");
+    await user.click(screen.getByRole("button", { name: "Open Folder" }));
+
+    expect(screen.getByLabelText("Provider")).toHaveValue("openai-subscription");
+  });
+
   it("asks before opening a different folder while the current file is dirty", async () => {
     const user = userEvent.setup();
     const chapter = fileNode("chapter-1.md");
-    tauriApiMock.pickProjectFolder.mockResolvedValueOnce({
-      rootPath: "/novel",
-      tree: [chapter],
-    });
+    mockProjectFolder([chapter]);
     mockMarkdownReads({
       "chapter-1.md": "# Chapter 1",
     });
@@ -127,10 +211,7 @@ describe("App", () => {
     const user = userEvent.setup();
     const original = fileNode("chapter-1.md");
     const renamed = fileNode("chapter-one.md");
-    tauriApiMock.pickProjectFolder.mockResolvedValueOnce({
-      rootPath: "/novel",
-      tree: [original],
-    });
+    mockProjectFolder([original]);
     mockMarkdownReads({
       "chapter-1.md": "# Chapter 1",
       "chapter-one.md": "# Chapter 1",
@@ -164,10 +245,7 @@ describe("App", () => {
   it("closes the editor when the open file is deleted", async () => {
     const user = userEvent.setup();
     const chapter = fileNode("chapter-1.md");
-    tauriApiMock.pickProjectFolder.mockResolvedValueOnce({
-      rootPath: "/novel",
-      tree: [chapter],
-    });
+    mockProjectFolder([chapter]);
     mockMarkdownReads({
       "chapter-1.md": "# Chapter 1",
     });
@@ -190,10 +268,7 @@ describe("App", () => {
     const user = userEvent.setup();
     const chapter = fileNode("chapter-1.md");
     const notes = fileNode("notes.md");
-    tauriApiMock.pickProjectFolder.mockResolvedValueOnce({
-      rootPath: "/novel",
-      tree: [chapter, notes],
-    });
+    mockProjectFolder([chapter, notes]);
     mockMarkdownReads({
       "chapter-1.md": "# Chapter 1\n\nThe house shuddered.\n\nOther line.",
       "notes.md": "# Notes\n\nThe house is haunted.",
@@ -225,10 +300,7 @@ describe("App", () => {
     const user = userEvent.setup();
     const chapter = fileNode("chapter-1.md");
     const notes = fileNode("notes.md");
-    tauriApiMock.pickProjectFolder.mockResolvedValueOnce({
-      rootPath: "/novel",
-      tree: [chapter, notes],
-    });
+    mockProjectFolder([chapter, notes]);
     mockMarkdownReads({
       "chapter-1.md": "# Chapter 1\n\nOld text.",
       "notes.md": "# Notes\n\nThe house is haunted.",
@@ -270,10 +342,7 @@ describe("App", () => {
     const chapter = fileNode("chapter-1.md");
     const scene = fileNode("scene.md");
     let resolveLocalResponse: (value: string) => void = () => undefined;
-    tauriApiMock.pickProjectFolder.mockResolvedValueOnce({
-      rootPath: "/novel",
-      tree: [chapter, scene],
-    });
+    mockProjectFolder([chapter, scene]);
     mockMarkdownReads({
       "chapter-1.md": "# Chapter 1\n\nOld text.",
       "scene.md": "# Scene\n\nDifferent text.",
@@ -308,10 +377,7 @@ describe("App", () => {
     const user = userEvent.setup();
     const chapter = fileNode("chapter-1.md");
     const alert = vi.spyOn(window, "alert").mockImplementation(() => undefined);
-    tauriApiMock.pickProjectFolder.mockResolvedValueOnce({
-      rootPath: "/novel",
-      tree: [chapter],
-    });
+    mockProjectFolder([chapter]);
     mockMarkdownReads({
       "chapter-1.md": "# Chapter 1\n\nOld text.",
     });
@@ -338,10 +404,7 @@ describe("App", () => {
     const user = userEvent.setup();
     const chapter = fileNode("chapter-1.md");
     const notes = fileNode("notes.md");
-    tauriApiMock.pickProjectFolder.mockResolvedValueOnce({
-      rootPath: "/novel",
-      tree: [chapter, notes],
-    });
+    mockProjectFolder([chapter, notes]);
     mockMarkdownReads({
       "chapter-1.md": "# Chapter 1\n\nThe lantern flickered.",
       "notes.md": "# Notes\n\nOld clue.",
@@ -365,10 +428,7 @@ describe("App", () => {
   it("imports a rewrite into the editor without saving to disk", async () => {
     const user = userEvent.setup();
     const chapter = fileNode("chapter-1.md");
-    tauriApiMock.pickProjectFolder.mockResolvedValueOnce({
-      rootPath: "/novel",
-      tree: [chapter],
-    });
+    mockProjectFolder([chapter]);
     mockMarkdownReads({
       "chapter-1.md": "# Chapter 1\n\nOld text.",
     });
@@ -395,10 +455,7 @@ describe("App", () => {
   it("imports a unified diff into the editor without saving to disk", async () => {
     const user = userEvent.setup();
     const chapter = fileNode("chapter-1.md");
-    tauriApiMock.pickProjectFolder.mockResolvedValueOnce({
-      rootPath: "/novel",
-      tree: [chapter],
-    });
+    mockProjectFolder([chapter]);
     mockMarkdownReads({
       "chapter-1.md": "# Chapter 1\n\nOld text.",
     });
@@ -427,10 +484,7 @@ describe("App", () => {
   it("imports suggestions into assistant history without changing the document", async () => {
     const user = userEvent.setup();
     const chapter = fileNode("chapter-1.md");
-    tauriApiMock.pickProjectFolder.mockResolvedValueOnce({
-      rootPath: "/novel",
-      tree: [chapter],
-    });
+    mockProjectFolder([chapter]);
     mockMarkdownReads({
       "chapter-1.md": "# Chapter 1\n\nOld text.",
     });
@@ -460,10 +514,7 @@ describe("App", () => {
     const user = userEvent.setup();
     const chapter = fileNode("chapter-1.md");
     const alert = vi.spyOn(window, "alert").mockImplementation(() => undefined);
-    tauriApiMock.pickProjectFolder.mockResolvedValueOnce({
-      rootPath: "/novel",
-      tree: [chapter],
-    });
+    mockProjectFolder([chapter]);
     mockMarkdownReads({
       "chapter-1.md": "# Chapter 1\n\nOld text.",
     });
@@ -521,4 +572,12 @@ function mockMarkdownReads(markdownByPath: Record<string, string>) {
       return { file: fileNode(filePath), markdown };
     },
   );
+}
+
+function mockProjectFolder(tree: FileNode[]) {
+  tauriApiMock.pickProjectFolder.mockResolvedValueOnce({
+    rootPath: "/novel",
+    tree,
+  });
+  tauriApiMock.readProjectTree.mockResolvedValueOnce(tree);
 }
