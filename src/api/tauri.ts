@@ -27,6 +27,15 @@ export interface TauriApi {
     filePath: string,
     markdown: string,
   ): Promise<void>;
+  createFile(rootPath: string, relativePath: string): Promise<void>;
+  createFolder(rootPath: string, relativePath: string): Promise<void>;
+  renameEntry(rootPath: string, path: string, newName: string): Promise<void>;
+  deleteEntry(rootPath: string, path: string): Promise<void>;
+  moveEntry(
+    rootPath: string,
+    path: string,
+    newRelativePath: string,
+  ): Promise<void>;
   copyText(text: string): Promise<void>;
   openExternal(url: string): Promise<void>;
 }
@@ -54,6 +63,30 @@ export function createTauriApi(deps: TauriApiDeps): TauriApi {
     writeMarkdownFile(rootPath, filePath, markdown) {
       return deps.invoke<void>("write_markdown_file", {
         request: { rootPath, filePath, markdown },
+      });
+    },
+
+    createFile(rootPath, relativePath) {
+      return deps.invoke<void>("create_file", { rootPath, relativePath });
+    },
+
+    createFolder(rootPath, relativePath) {
+      return deps.invoke<void>("create_folder", { rootPath, relativePath });
+    },
+
+    renameEntry(rootPath, path, newName) {
+      return deps.invoke<void>("rename_entry", { rootPath, path, newName });
+    },
+
+    deleteEntry(rootPath, path) {
+      return deps.invoke<void>("delete_entry", { rootPath, path });
+    },
+
+    moveEntry(rootPath, path, newRelativePath) {
+      return deps.invoke<void>("move_entry", {
+        rootPath,
+        path,
+        newRelativePath,
       });
     },
 

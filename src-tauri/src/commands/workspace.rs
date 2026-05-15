@@ -1,6 +1,8 @@
 use crate::model::{FileKind, FileNode, OpenFile, WriteFileRequest};
 use std::ffi::OsStr;
 use std::fs;
+use std::fs::OpenOptions;
+use std::path::Component;
 use std::path::{Path, PathBuf};
 use std::time::UNIX_EPOCH;
 
@@ -40,6 +42,66 @@ pub fn write_markdown_file(request: WriteFileRequest) -> Result<(), String> {
     fs::write(file, request.markdown).map_err(|err| err.to_string())
 }
 
+#[tauri::command]
+pub fn create_file(root_path: String, relative_path: String) -> Result<(), String> {
+    let root = canonical_root(Path::new(&root_path))?;
+    let target = ensure_new_target_inside_root(&root, Path::new(&relative_path))?;
+
+    OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(target)
+        .map(|_| ())
+        .map_err(|err| err.to_string())
+}
+
+#[tauri::command]
+pub fn create_folder(root_path: String, relative_path: String) -> Result<(), String> {
+    let root = canonical_root(Path::new(&root_path))?;
+    let target = ensure_new_target_inside_root(&root, Path::new(&relative_path))?;
+
+    fs::create_dir(target).map_err(|err| err.to_string())
+}
+
+#[tauri::command]
+pub fn rename_entry(root_path: String, path: String, new_name: String) -> Result<(), String> {
+    validate_entry_name(&new_name)?;
+    let root = canonical_root(Path::new(&root_path))?;
+    let source = ensure_existing_entry_for_operation(&root, Path::new(&path))?;
+    let parent = source
+        .parent()
+        .ok_or_else(|| "entry has no parent directory".to_string())?;
+    let target = ensure_new_target_inside_root(parent, Path::new(&new_name))?;
+
+    fs::rename(source, target).map_err(|err| err.to_string())
+}
+
+#[tauri::command]
+pub fn delete_entry(root_path: String, path: String) -> Result<(), String> {
+    let root = canonical_root(Path::new(&root_path))?;
+    let target = ensure_existing_entry_for_operation(&root, Path::new(&path))?;
+    let metadata = fs::symlink_metadata(&target).map_err(|err| err.to_string())?;
+
+    if metadata.is_dir() {
+        fs::remove_dir_all(target).map_err(|err| err.to_string())
+    } else {
+        fs::remove_file(target).map_err(|err| err.to_string())
+    }
+}
+
+#[tauri::command]
+pub fn move_entry(
+    root_path: String,
+    path: String,
+    new_relative_path: String,
+) -> Result<(), String> {
+    let root = canonical_root(Path::new(&root_path))?;
+    let source = ensure_existing_entry_for_operation(&root, Path::new(&path))?;
+    let target = ensure_new_target_inside_root(&root, Path::new(&new_relative_path))?;
+
+    fs::rename(source, target).map_err(|err| err.to_string())
+}
+
 pub fn scan_tree(root: &Path) -> Result<Vec<FileNode>, String> {
     let root = canonical_root(root)?;
     scan_tree_from_root(&root, &root)
@@ -59,6 +121,95 @@ pub fn ensure_inside_root(root: &Path, file_path: &Path) -> Result<PathBuf, Stri
     } else {
         Err("path is outside project root".to_string())
     }
+}
+
+fn ensure_existing_entry_for_operation(root: &Path, path: &Path) -> Result<PathBuf, String> {
+    let root = canonical_root(root)?;
+    let target = if path.is_absolute() {
+        path.to_path_buf()
+    } else {
+        root.join(path)
+    };
+    let parent = target
+        .parent()
+        .ok_or_else(|| "entry path must have a parent directory".to_string())?
+        .canonicalize()
+        .map_err(|err| err.to_string())?;
+
+    if !parent.starts_with(&root) {
+        return Err("path is outside project root".to_string());
+    }
+
+    let metadata = fs::symlink_metadata(&target).map_err(|err| err.to_string())?;
+    if metadata.file_type().is_symlink() {
+        return Err("cannot operate on symlink entries".to_string());
+    }
+
+    let target = target.canonicalize().map_err(|err| err.to_string())?;
+
+    if target == root {
+        Err("cannot operate on the project root".to_string())
+    } else {
+        Ok(target)
+    }
+}
+
+fn ensure_new_target_inside_root(root: &Path, target_path: &Path) -> Result<PathBuf, String> {
+    let root = canonical_root(root)?;
+    validate_new_target_path(target_path)?;
+    let target = if target_path.is_absolute() {
+        target_path.to_path_buf()
+    } else {
+        root.join(target_path)
+    };
+    let parent = target
+        .parent()
+        .ok_or_else(|| "target path must have a parent directory".to_string())?
+        .canonicalize()
+        .map_err(|err| err.to_string())?;
+
+    if !parent.starts_with(&root) {
+        return Err("path is outside project root".to_string());
+    }
+
+    if target.exists() {
+        return Err("target already exists".to_string());
+    }
+
+    Ok(target)
+}
+
+fn validate_new_target_path(target_path: &Path) -> Result<(), String> {
+    let mut components = target_path.components();
+    let last = components
+        .next_back()
+        .ok_or_else(|| "path cannot be empty".to_string())?;
+
+    if !matches!(last, Component::Normal(name) if !name.is_empty()) {
+        return Err("path must end with a valid name".to_string());
+    }
+
+    Ok(())
+}
+
+fn validate_entry_name(name: &str) -> Result<(), String> {
+    if name.trim().is_empty() {
+        return Err("name cannot be empty".to_string());
+    }
+    if name.contains('/') || name.contains('\\') {
+        return Err("name cannot contain path separators".to_string());
+    }
+    if !matches!(
+        Path::new(name).components().next(),
+        Some(Component::Normal(_))
+    ) {
+        return Err("name must be a file or folder name".to_string());
+    }
+    if Path::new(name).components().count() != 1 {
+        return Err("name must be a file or folder name".to_string());
+    }
+
+    Ok(())
 }
 
 fn scan_tree_from_root(root: &Path, directory: &Path) -> Result<Vec<FileNode>, String> {
@@ -240,6 +391,182 @@ mod tests {
         )
         .unwrap_err();
         assert!(err.contains("only Markdown files"));
+    }
+
+    #[test]
+    fn creates_and_renames_entries_inside_root() {
+        let root = temp_root();
+
+        create_folder(
+            root.path().to_string_lossy().to_string(),
+            "drafts".to_string(),
+        )
+        .unwrap();
+        create_file(
+            root.path().to_string_lossy().to_string(),
+            "drafts/chapter.md".to_string(),
+        )
+        .unwrap();
+        rename_entry(
+            root.path().to_string_lossy().to_string(),
+            "drafts/chapter.md".to_string(),
+            "chapter-1.md".to_string(),
+        )
+        .unwrap();
+
+        assert!(root.path().join("drafts").join("chapter-1.md").is_file());
+        assert!(!root.path().join("drafts").join("chapter.md").exists());
+    }
+
+    #[test]
+    fn deletes_files_and_directories_but_not_project_root() {
+        let root = temp_root();
+        fs::create_dir(root.path().join("drafts")).unwrap();
+        fs::write(root.path().join("drafts").join("chapter.md"), "# Chapter").unwrap();
+
+        delete_entry(
+            root.path().to_string_lossy().to_string(),
+            "drafts".to_string(),
+        )
+        .unwrap();
+
+        assert!(!root.path().join("drafts").exists());
+
+        let err =
+            delete_entry(root.path().to_string_lossy().to_string(), ".".to_string()).unwrap_err();
+        assert!(err.contains("project root"));
+    }
+
+    #[test]
+    fn moves_entries_inside_root() {
+        let root = temp_root();
+        fs::create_dir(root.path().join("drafts")).unwrap();
+        fs::create_dir(root.path().join("archive")).unwrap();
+        fs::write(root.path().join("drafts").join("chapter.md"), "# Chapter").unwrap();
+
+        move_entry(
+            root.path().to_string_lossy().to_string(),
+            "drafts/chapter.md".to_string(),
+            "archive/chapter.md".to_string(),
+        )
+        .unwrap();
+
+        assert!(root.path().join("archive").join("chapter.md").is_file());
+        assert!(!root.path().join("drafts").join("chapter.md").exists());
+    }
+
+    #[test]
+    fn rejects_traversal_and_invalid_rename_names() {
+        let root = temp_root();
+        let outside = temp_root();
+        fs::write(root.path().join("chapter.md"), "# Chapter").unwrap();
+
+        let create_err = create_file(
+            root.path().to_string_lossy().to_string(),
+            "../outside.md".to_string(),
+        )
+        .unwrap_err();
+        assert!(create_err.contains("outside project root"));
+
+        let move_err = move_entry(
+            root.path().to_string_lossy().to_string(),
+            "chapter.md".to_string(),
+            outside
+                .path()
+                .join("chapter.md")
+                .to_string_lossy()
+                .to_string(),
+        )
+        .unwrap_err();
+        assert!(move_err.contains("outside project root"));
+
+        let rename_err = rename_entry(
+            root.path().to_string_lossy().to_string(),
+            "chapter.md".to_string(),
+            "drafts/chapter.md".to_string(),
+        )
+        .unwrap_err();
+        assert!(rename_err.contains("name"));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn delete_rejects_in_root_symlink_source_without_touching_target() {
+        use std::os::unix::fs::symlink;
+
+        let root = temp_root();
+        let real = root.path().join("real.md");
+        let link = root.path().join("link.md");
+        fs::write(&real, "# Real").unwrap();
+        symlink(&real, &link).unwrap();
+
+        let err = delete_entry(
+            root.path().to_string_lossy().to_string(),
+            "link.md".to_string(),
+        )
+        .unwrap_err();
+
+        assert!(err.contains("symlink"));
+        assert_eq!(fs::read_to_string(&real).unwrap(), "# Real");
+        assert!(fs::symlink_metadata(&link)
+            .unwrap()
+            .file_type()
+            .is_symlink());
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn rename_rejects_in_root_symlink_source_without_touching_target() {
+        use std::os::unix::fs::symlink;
+
+        let root = temp_root();
+        let real = root.path().join("real.md");
+        let link = root.path().join("link.md");
+        fs::write(&real, "# Real").unwrap();
+        symlink(&real, &link).unwrap();
+
+        let err = rename_entry(
+            root.path().to_string_lossy().to_string(),
+            "link.md".to_string(),
+            "renamed.md".to_string(),
+        )
+        .unwrap_err();
+
+        assert!(err.contains("symlink"));
+        assert_eq!(fs::read_to_string(&real).unwrap(), "# Real");
+        assert!(fs::symlink_metadata(&link)
+            .unwrap()
+            .file_type()
+            .is_symlink());
+        assert!(!root.path().join("renamed.md").exists());
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn move_rejects_in_root_symlink_source_without_touching_target() {
+        use std::os::unix::fs::symlink;
+
+        let root = temp_root();
+        let real = root.path().join("real.md");
+        let link = root.path().join("link.md");
+        fs::create_dir(root.path().join("archive")).unwrap();
+        fs::write(&real, "# Real").unwrap();
+        symlink(&real, &link).unwrap();
+
+        let err = move_entry(
+            root.path().to_string_lossy().to_string(),
+            "link.md".to_string(),
+            "archive/link.md".to_string(),
+        )
+        .unwrap_err();
+
+        assert!(err.contains("symlink"));
+        assert_eq!(fs::read_to_string(&real).unwrap(), "# Real");
+        assert!(fs::symlink_metadata(&link)
+            .unwrap()
+            .file_type()
+            .is_symlink());
+        assert!(!root.path().join("archive").join("link.md").exists());
     }
 
     #[cfg(unix)]

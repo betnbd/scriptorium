@@ -12,6 +12,11 @@ pub fn run() {
             commands::workspace::read_project_tree,
             commands::workspace::read_markdown_file,
             commands::workspace::write_markdown_file,
+            commands::workspace::create_file,
+            commands::workspace::create_folder,
+            commands::workspace::rename_entry,
+            commands::workspace::delete_entry,
+            commands::workspace::move_entry,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
