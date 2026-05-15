@@ -161,9 +161,40 @@ export function createTauriApi(deps: TauriApiDeps): TauriApi {
   };
 }
 
-export const tauriApi = createTauriApi({
-  invoke,
-  open,
-  writeText,
-  openUrl,
-});
+export function createBrowserTauriApi(): TauriApi {
+  return createTauriApi({
+    async invoke<T>(command: string): Promise<T> {
+      if (command === "load_settings" || command === "load_project_env") {
+        return null as T;
+      }
+
+      if (command === "read_project_tree") {
+        return [] as T;
+      }
+
+      throw new Error("Desktop file access is available in the DraftAgent app.");
+    },
+    async open() {
+      return null;
+    },
+    async writeText(text) {
+      await navigator.clipboard?.writeText(text);
+    },
+    async openUrl(url) {
+      window.open(url, "_blank", "noopener,noreferrer");
+    },
+  });
+}
+
+function isTauriRuntime() {
+  return typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
+}
+
+export const tauriApi = isTauriRuntime()
+  ? createTauriApi({
+      invoke,
+      open,
+      writeText,
+      openUrl,
+    })
+  : createBrowserTauriApi();

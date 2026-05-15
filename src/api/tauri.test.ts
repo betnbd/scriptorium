@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { createTauriApi } from "./tauri";
+import { createBrowserTauriApi, createTauriApi } from "./tauri";
 import { defaultSettings } from "../state/appReducer";
 import type { FileNode } from "../types";
 
@@ -153,5 +153,17 @@ describe("createTauriApi", () => {
         ignoreBinaryFiles: true,
       },
     });
+  });
+
+  it("keeps the browser-rendered shell clean when Tauri is unavailable", async () => {
+    const api = createBrowserTauriApi();
+
+    await expect(api.loadSettings()).resolves.toBeNull();
+    await expect(api.loadProjectEnv("/novel")).resolves.toBeNull();
+    await expect(api.pickProjectFolder()).resolves.toBeNull();
+    await expect(api.readProjectTree("/novel")).resolves.toEqual([]);
+    await expect(api.readMarkdownFile("/novel", "chapter.md")).rejects.toThrow(
+      "Desktop file access is available in the DraftAgent app.",
+    );
   });
 });

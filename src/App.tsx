@@ -1,9 +1,10 @@
 import { useEffect, useReducer, useRef, useState } from "react";
-import type { CSSProperties } from "react";
+import type { CSSProperties, PointerEvent as ReactPointerEvent } from "react";
 import { tauriApi } from "./api/tauri";
 import { applyAssistantResult } from "./assistant/applyResult";
 import { buildAssistantPrompt } from "./assistant/promptBuilder";
 import { parseAssistantResponse } from "./assistant/responseParser";
+import { AppMenuBar } from "./components/AppMenuBar";
 import {
   AssistantPane,
   type AssistantRequest,
@@ -15,6 +16,13 @@ import { buildIndex, selectRelevantContext } from "./context/indexer";
 import { normalizeMarkdownForSave } from "./editor/markdown";
 import { appReducer, initialAppState } from "./state/appReducer";
 import { shouldSwitchFile } from "./state/guards";
+import {
+  defaultPaneLayout,
+  resetPaneLayout,
+  resizePaneLayout,
+  type PaneLayout,
+  type ResizePane,
+} from "./state/layout";
 import type {
   AppSettings,
   AssistantMode,
@@ -31,6 +39,15 @@ export default function App() {
   const [assistantMode, setAssistantMode] = useState<AssistantMode>("rewrite");
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [hasLocalSettings, setHasLocalSettings] = useState(false);
+  const [paneLayout, setPaneLayout] =
+    useState<PaneLayout>(defaultPaneLayout);
+  const [activeResizePane, setActiveResizePane] =
+    useState<ResizePane | null>(null);
+  const resizeStateRef = useRef<{
+    pane: ResizePane;
+    startX: number;
+    layout: PaneLayout;
+  } | null>(null);
   const liveEditorRef = useRef<{
     relativePath: string | null;
     markdown: string;
@@ -42,7 +59,44 @@ export default function App() {
   const editorSettingsStyle = {
     "--editor-font-size": `${state.settings.editorFontSize}px`,
     "--editor-line-width": `${state.settings.editorLineWidth}px`,
+    "--file-pane-width": `${paneLayout.filePaneWidth}px`,
+    "--assistant-pane-width": `${paneLayout.assistantPaneWidth}px`,
   } as CSSProperties;
+
+  useEffect(() => {
+    if (!activeResizePane) {
+      return undefined;
+    }
+
+    function onPointerMove(event: PointerEvent) {
+      const resizeState = resizeStateRef.current;
+
+      if (!resizeState) {
+        return;
+      }
+
+      setPaneLayout(
+        resizePaneLayout({
+          layout: resizeState.layout,
+          pane: resizeState.pane,
+          deltaX: event.clientX - resizeState.startX,
+        }),
+      );
+    }
+
+    function onPointerUp() {
+      resizeStateRef.current = null;
+      setActiveResizePane(null);
+    }
+
+    window.addEventListener("pointermove", onPointerMove);
+    window.addEventListener("pointerup", onPointerUp);
+
+    return () => {
+      window.removeEventListener("pointermove", onPointerMove);
+      window.removeEventListener("pointerup", onPointerUp);
+    };
+  }, [activeResizePane]);
 
   useEffect(() => {
     let isMounted = true;
@@ -340,6 +394,36 @@ export default function App() {
     dispatch({ type: "errorShown", message: messageFromError(error) });
   }
 
+  function startPaneResize(
+    pane: ResizePane,
+    event: ReactPointerEvent<HTMLDivElement>,
+  ) {
+    event.preventDefault();
+    resizeStateRef.current = {
+      pane,
+      startX: event.clientX,
+      layout: paneLayout,
+    };
+    setActiveResizePane(pane);
+  }
+
+  async function openSubscriptionProvider(
+    provider: Extract<
+      AppSettings["defaultProvider"],
+      "openai-subscription" | "anthropic-subscription"
+    >,
+  ) {
+    try {
+      await tauriApi.openExternal(
+        provider === "openai-subscription"
+          ? state.settings.openaiUrl
+          : state.settings.anthropicUrl,
+      );
+    } catch (error) {
+      showError(error);
+    }
+  }
+
   function pathAffectsOpenFile(path: string) {
     return state.openFile
       ? isSamePathOrDescendant(state.openFile.relativePath, path)
@@ -491,48 +575,67 @@ export default function App() {
           </button>
         </div>
       ) : null}
-      <aside className="file-pane">
-        <header className="app-brand">
-          <h1>DraftAgent</h1>
-          <button type="button" onClick={() => setIsSettingsOpen(true)}>
-            Settings
-          </button>
-          <button type="button" onClick={() => void reindexProject()}>
-            Reindex
-          </button>
-        </header>
-        <FileTree
-          rootPath={state.rootPath}
-          nodes={state.tree}
-          onOpenFolder={openFolder}
-          onOpenFile={openFile}
-          onCreateFile={createFile}
-          onCreateFolder={createFolder}
-          onRename={renameEntry}
-          onDelete={deleteEntry}
-          onMove={moveEntry}
-          activePath={state.openFile?.relativePath}
-        />
-      </aside>
-      <EditorPane
-        openFile={state.openFile}
-        markdown={state.openMarkdown}
-        isDirty={state.isDirty}
-        onChange={(markdown) =>
-          dispatch({ type: "editorChanged", markdown })
+      <AppMenuBar
+        canSave={state.isDirty}
+        canUseProject={Boolean(state.rootPath)}
+        onOpenFolder={openFolder}
+        onCreateFile={() => void createFile("")}
+        onCreateFolder={() => void createFolder("")}
+        onSave={() => void saveFile()}
+        onSettings={() => setIsSettingsOpen(true)}
+        onReindex={() => void reindexProject()}
+        onResetLayout={() => setPaneLayout(resetPaneLayout())}
+        onOpenChatGpt={() => void openSubscriptionProvider("openai-subscription")}
+        onOpenClaude={() =>
+          void openSubscriptionProvider("anthropic-subscription")
         }
-        onSave={saveFile}
-        onSelectionChange={setAssistantSelection}
       />
-      <AssistantPane
-        key={state.settings.defaultProvider}
-        defaultProvider={state.settings.defaultProvider}
-        messages={state.assistantMessages}
-        onSubmit={(request) => {
-          void submitAssistantRequest(request);
-        }}
-        onImport={importAssistantResponse}
-      />
+      <div className="workspace-grid">
+        <aside className="file-pane">
+          <FileTree
+            rootPath={state.rootPath}
+            nodes={state.tree}
+            onOpenFolder={openFolder}
+            onOpenFile={openFile}
+            onCreateFile={createFile}
+            onCreateFolder={createFolder}
+            onRename={renameEntry}
+            onDelete={deleteEntry}
+            onMove={moveEntry}
+            activePath={state.openFile?.relativePath}
+          />
+        </aside>
+        <PaneResizer
+          label="Resize file pane"
+          isActive={activeResizePane === "file"}
+          onPointerDown={(event) => startPaneResize("file", event)}
+        />
+        <EditorPane
+          openFile={state.openFile}
+          markdown={state.openMarkdown}
+          isDirty={state.isDirty}
+          onChange={(markdown) =>
+            dispatch({ type: "editorChanged", markdown })
+          }
+          onSave={saveFile}
+          onSelectionChange={setAssistantSelection}
+        />
+        <PaneResizer
+          label="Resize assistant pane"
+          isActive={activeResizePane === "assistant"}
+          onPointerDown={(event) => startPaneResize("assistant", event)}
+        />
+        <AssistantPane
+          key={state.settings.defaultProvider}
+          defaultProvider={state.settings.defaultProvider}
+          messages={state.assistantMessages}
+          onSubmit={(request) => {
+            void submitAssistantRequest(request);
+          }}
+          onImport={importAssistantResponse}
+          onOpenProvider={(provider) => void openSubscriptionProvider(provider)}
+        />
+      </div>
       {isSettingsOpen ? (
         <SettingsDialog
           settings={state.settings}
@@ -542,6 +645,27 @@ export default function App() {
         />
       ) : null}
     </main>
+  );
+}
+
+function PaneResizer({
+  label,
+  isActive,
+  onPointerDown,
+}: {
+  label: string;
+  isActive: boolean;
+  onPointerDown: (event: ReactPointerEvent<HTMLDivElement>) => void;
+}) {
+  return (
+    <div
+      aria-label={label}
+      aria-orientation="vertical"
+      className={isActive ? "pane-resizer is-active" : "pane-resizer"}
+      onPointerDown={onPointerDown}
+      role="separator"
+      tabIndex={0}
+    />
   );
 }
 

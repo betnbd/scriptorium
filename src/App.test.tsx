@@ -102,7 +102,25 @@ describe("App", () => {
 
     expect(screen.getByText("DraftAgent")).toBeInTheDocument();
     expect(screen.getByText("No file open")).toBeInTheDocument();
-    expect(screen.getByText("Assistant")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Assistant" })).toBeInTheDocument();
+  });
+
+  it("opens subscription login targets from the assistant pane", async () => {
+    const user = userEvent.setup();
+
+    render(<App />);
+
+    await user.click(screen.getByRole("button", { name: "Open ChatGPT" }));
+    await user.click(screen.getByRole("button", { name: "Open Claude" }));
+
+    expect(tauriApiMock.openExternal).toHaveBeenNthCalledWith(
+      1,
+      "https://chatgpt.com/",
+    );
+    expect(tauriApiMock.openExternal).toHaveBeenNthCalledWith(
+      2,
+      "https://claude.ai/new",
+    );
   });
 
   it("opens settings, saves changes, and updates provider workflow", async () => {

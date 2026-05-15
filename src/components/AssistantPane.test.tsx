@@ -77,6 +77,27 @@ describe("AssistantPane", () => {
     expect(onImport).toHaveBeenCalledWith("Use shorter sentences.", "rewrite");
   });
 
+  it("opens subscription login targets", async () => {
+    const user = userEvent.setup();
+    const onOpenProvider = vi.fn();
+
+    render(
+      <AssistantPane
+        defaultProvider="openai-subscription"
+        messages={[]}
+        onSubmit={vi.fn()}
+        onImport={vi.fn()}
+        onOpenProvider={onOpenProvider}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: "Open ChatGPT" }));
+    await user.click(screen.getByRole("button", { name: "Open Claude" }));
+
+    expect(onOpenProvider).toHaveBeenNthCalledWith(1, "openai-subscription");
+    expect(onOpenProvider).toHaveBeenNthCalledWith(2, "anthropic-subscription");
+  });
+
   it("passes the selected mode when importing a response", async () => {
     const user = userEvent.setup();
     const onImport = vi.fn();
