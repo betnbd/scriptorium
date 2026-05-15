@@ -1,5 +1,6 @@
 TASKS.local.md
 PROJECT.local.md
+.superpowers/
 .env
 .env.*
 !.env.example
@@ -10,4 +11,3 @@ coverage/
 .cache/
 *.log
 .DS_Store
-
