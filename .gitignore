@@ -8,6 +8,8 @@ node_modules/
 dist/
 build/
 coverage/
+test-results/
+playwright-report/
 .cache/
 *.log
 .DS_Store
