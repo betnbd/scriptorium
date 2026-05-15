@@ -63,4 +63,38 @@ describe("appReducer", () => {
 
     expect(state.assistantMessages).toEqual([]);
   });
+
+  it("replaces indexed document content after a file save", () => {
+    const state = appReducer(
+      {
+        ...initialAppState,
+        indexedDocuments: [
+          {
+            path: "/novel/notes.md",
+            relativePath: "notes.md",
+            title: "Notes",
+            headings: ["Notes"],
+            links: [],
+            chunks: ["Old clue."],
+            modifiedAt: 10,
+          },
+        ],
+      },
+      {
+        type: "indexedDocumentUpdated",
+        document: {
+          path: "/novel/notes.md",
+          relativePath: "notes.md",
+          title: "Notes",
+          headings: ["Notes"],
+          links: [],
+          chunks: ["Changed lantern."],
+          modifiedAt: 20,
+        },
+      },
+    );
+
+    expect(state.indexedDocuments).toHaveLength(1);
+    expect(state.indexedDocuments[0]?.chunks).toEqual(["Changed lantern."]);
+  });
 });

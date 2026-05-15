@@ -9,6 +9,7 @@ interface EditorPaneProps {
   isDirty: boolean;
   onChange: (markdown: string) => void;
   onSave: () => void;
+  onSelectionChange?: (markdown: string | null) => void;
 }
 
 export function EditorPane({
@@ -17,6 +18,7 @@ export function EditorPane({
   isDirty,
   onChange,
   onSave,
+  onSelectionChange,
 }: EditorPaneProps) {
   const loadedContent = useRef<{
     relativePath: string;
@@ -35,6 +37,17 @@ export function EditorPane({
     immediatelyRender: false,
     onUpdate: ({ editor }) => {
       onChange(editor.getMarkdown());
+    },
+    onSelectionUpdate: ({ editor }) => {
+      const { selection, doc } = editor.state;
+
+      if (selection.empty) {
+        onSelectionChange?.(null);
+        return;
+      }
+
+      const selectedText = doc.textBetween(selection.from, selection.to, "\n\n");
+      onSelectionChange?.(selectedText.trim() ? selectedText : null);
     },
   });
 

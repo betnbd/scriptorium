@@ -8,6 +8,14 @@ const tiptap = vi.hoisted(() => ({
     | {
         editorProps?: { attributes?: Record<string, string> };
         onUpdate?: (props: { editor: { getMarkdown: () => string } }) => void;
+        onSelectionUpdate?: (props: {
+          editor: {
+            state: {
+              selection: { empty: boolean; from: number; to: number };
+              doc: { textBetween: (from: number, to: number, separator: string) => string };
+            };
+          };
+        }) => void;
       }
     | undefined,
 }));
@@ -111,5 +119,34 @@ describe("EditorPane", () => {
     });
 
     expect(onChange).toHaveBeenCalledWith("# Chapter 1  ");
+  });
+
+  it("emits selected editor text for assistant targeting", () => {
+    const onSelectionChange = vi.fn();
+    render(
+      <EditorPane
+        openFile={{ relativePath: "chapters/chapter-1.md", name: "chapter-1.md" }}
+        markdown="# Chapter 1"
+        isDirty={false}
+        onChange={vi.fn()}
+        onSave={vi.fn()}
+        onSelectionChange={onSelectionChange}
+      />,
+    );
+
+    act(() => {
+      tiptap.lastOptions?.onSelectionUpdate?.({
+        editor: {
+          state: {
+            selection: { empty: false, from: 3, to: 16 },
+            doc: {
+              textBetween: vi.fn(() => "Selected line."),
+            },
+          },
+        },
+      });
+    });
+
+    expect(onSelectionChange).toHaveBeenCalledWith("Selected line.");
   });
 });

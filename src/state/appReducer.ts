@@ -35,6 +35,7 @@ export type AppAction =
       tree: FileNode[];
       indexedDocuments: IndexedDocument[];
     }
+  | { type: "indexedDocumentUpdated"; document: IndexedDocument }
   | { type: "assistantMessageAdded"; message: AssistantMessage }
   | { type: "settingsLoaded"; settings: AppSettings };
 
@@ -120,6 +121,14 @@ export function appReducer(state: AppState, action: AppAction): AppState {
         tree: action.tree,
         indexedDocuments: action.indexedDocuments,
       };
+    case "indexedDocumentUpdated":
+      return {
+        ...state,
+        indexedDocuments: upsertIndexedDocument(
+          state.indexedDocuments,
+          action.document,
+        ),
+      };
     case "assistantMessageAdded":
       return {
         ...state,
@@ -131,4 +140,23 @@ export function appReducer(state: AppState, action: AppAction): AppState {
         settings: action.settings,
       };
   }
+}
+
+function upsertIndexedDocument(
+  documents: IndexedDocument[],
+  document: IndexedDocument,
+): IndexedDocument[] {
+  const existingIndex = documents.findIndex(
+    (entry) =>
+      entry.path === document.path ||
+      entry.relativePath === document.relativePath,
+  );
+
+  if (existingIndex === -1) {
+    return [...documents, document];
+  }
+
+  return documents.map((entry, index) =>
+    index === existingIndex ? document : entry,
+  );
 }

@@ -58,6 +58,76 @@ select {
   background: #f8f9fb;
 }
 
+.assistant-pane {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.assistant-header {
+  padding-bottom: 14px;
+  border-bottom: 1px solid #d9dee7;
+}
+
+.assistant-header h2 {
+  margin: 0;
+  color: #1f2933;
+  font-size: 18px;
+  font-weight: 650;
+  line-height: 1.3;
+}
+
+.assistant-controls,
+.assistant-import {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.assistant-pane label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  color: #4a5565;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+.assistant-pane select,
+.assistant-pane textarea {
+  width: 100%;
+  border: 1px solid #b8c0cc;
+  border-radius: 6px;
+  padding: 8px 10px;
+  color: #20242a;
+  background: #ffffff;
+  font-weight: 400;
+}
+
+.assistant-pane textarea {
+  min-height: 120px;
+  resize: vertical;
+  line-height: 1.45;
+}
+
+.assistant-import textarea {
+  min-height: 180px;
+}
+
+.assistant-pane button {
+  display: inline-flex;
+  min-height: 36px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #2f5f9f;
+  border-radius: 6px;
+  padding: 8px 12px;
+  color: #ffffff;
+  background: #356cae;
+  cursor: pointer;
+}
+
 .file-tree {
   display: flex;
   min-height: 100%;

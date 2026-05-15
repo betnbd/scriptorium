@@ -14,6 +14,8 @@ const tauriApiMock = vi.hoisted(() => ({
   renameEntry: vi.fn(),
   deleteEntry: vi.fn(),
   moveEntry: vi.fn(),
+  copyText: vi.fn(),
+  openExternal: vi.fn(),
 }));
 
 vi.mock("./api/tauri", () => ({
@@ -27,20 +29,25 @@ vi.mock("./components/EditorPane", () => ({
     isDirty,
     onChange,
     onSave,
+    onSelectionChange,
   }: {
     openFile: { relativePath: string; name: string } | null;
     markdown: string;
     isDirty: boolean;
     onChange: (markdown: string) => void;
     onSave: () => void;
+    onSelectionChange?: (markdown: string | null) => void;
   }) =>
     openFile ? (
       <section className="editor-pane">
         <h1>{openFile.name}</h1>
         <p>{openFile.relativePath}</p>
         <span>{isDirty ? "Unsaved" : "Saved"}</span>
-        <button type="button" onClick={() => onChange(`${markdown}\nChanged.`)}>
+        <button type="button" onClick={() => onChange(`${markdown}\nChanged lantern.`)}>
           Edit Text
+        </button>
+        <button type="button" onClick={() => onSelectionChange?.("The house shuddered.")}>
+          Select Text
         </button>
         <button type="button" onClick={onSave} disabled={!isDirty}>
           Save
@@ -55,7 +62,17 @@ vi.mock("./components/EditorPane", () => ({
 
 describe("App", () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    tauriApiMock.pickProjectFolder.mockReset();
+    tauriApiMock.readProjectTree.mockReset();
+    tauriApiMock.readMarkdownFile.mockReset();
+    tauriApiMock.writeMarkdownFile.mockReset();
+    tauriApiMock.createFile.mockReset();
+    tauriApiMock.createFolder.mockReset();
+    tauriApiMock.renameEntry.mockReset();
+    tauriApiMock.deleteEntry.mockReset();
+    tauriApiMock.moveEntry.mockReset();
+    tauriApiMock.copyText.mockReset();
+    tauriApiMock.openExternal.mockReset();
   });
 
   afterEach(() => {
@@ -77,9 +94,8 @@ describe("App", () => {
       rootPath: "/novel",
       tree: [chapter],
     });
-    tauriApiMock.readMarkdownFile.mockResolvedValueOnce({
-      file: chapter,
-      markdown: "# Chapter 1",
+    mockMarkdownReads({
+      "chapter-1.md": "# Chapter 1",
     });
     const confirm = vi.spyOn(window, "confirm").mockReturnValue(false);
 
@@ -104,9 +120,9 @@ describe("App", () => {
       rootPath: "/novel",
       tree: [original],
     });
-    tauriApiMock.readMarkdownFile.mockResolvedValueOnce({
-      file: original,
-      markdown: "# Chapter 1",
+    mockMarkdownReads({
+      "chapter-1.md": "# Chapter 1",
+      "chapter-one.md": "# Chapter 1",
     });
     tauriApiMock.readProjectTree.mockResolvedValueOnce([renamed]);
     vi.spyOn(window, "prompt").mockReturnValue("chapter-one.md");
@@ -128,7 +144,7 @@ describe("App", () => {
     expect(tauriApiMock.writeMarkdownFile).toHaveBeenCalledWith(
       "/novel",
       "chapter-one.md",
-      expect.stringContaining("Changed."),
+      expect.stringContaining("Changed lantern."),
     );
   });
 
@@ -139,9 +155,8 @@ describe("App", () => {
       rootPath: "/novel",
       tree: [chapter],
     });
-    tauriApiMock.readMarkdownFile.mockResolvedValueOnce({
-      file: chapter,
-      markdown: "# Chapter 1",
+    mockMarkdownReads({
+      "chapter-1.md": "# Chapter 1",
     });
     tauriApiMock.readProjectTree.mockResolvedValueOnce([]);
     vi.spyOn(window, "confirm").mockReturnValue(true);
@@ -154,6 +169,67 @@ describe("App", () => {
 
     expect(tauriApiMock.deleteEntry).toHaveBeenCalledWith("/novel", "chapter-1.md");
     expect(await screen.findByText("No file open")).toBeInTheDocument();
+  });
+
+  it("prepares a subscription handoff prompt from the current selection and indexed context", async () => {
+    const user = userEvent.setup();
+    const chapter = fileNode("chapter-1.md");
+    const notes = fileNode("notes.md");
+    tauriApiMock.pickProjectFolder.mockResolvedValueOnce({
+      rootPath: "/novel",
+      tree: [chapter, notes],
+    });
+    mockMarkdownReads({
+      "chapter-1.md": "# Chapter 1\n\nThe house shuddered.\n\nOther line.",
+      "notes.md": "# Notes\n\nThe house is haunted.",
+    });
+
+    render(<App />);
+
+    await user.click(screen.getByRole("button", { name: "Open Folder" }));
+    await user.click(await screen.findByRole("button", { name: "Open chapter-1.md" }));
+    await user.click(screen.getByRole("button", { name: "Select Text" }));
+    await user.type(screen.getByLabelText("Instruction"), "Make this more tense");
+    await user.click(screen.getByRole("button", { name: "Prepare" }));
+
+    expect(tauriApiMock.copyText).toHaveBeenCalledWith(
+      expect.stringContaining("The house shuddered."),
+    );
+    expect(tauriApiMock.copyText).toHaveBeenCalledWith(
+      expect.not.stringContaining("Other line."),
+    );
+    expect(tauriApiMock.copyText).toHaveBeenCalledWith(
+      expect.stringContaining("The house is haunted."),
+    );
+    expect(tauriApiMock.openExternal).toHaveBeenCalledWith("https://chatgpt.com/");
+  });
+
+  it("uses saved Markdown edits in later assistant context", async () => {
+    const user = userEvent.setup();
+    const chapter = fileNode("chapter-1.md");
+    const notes = fileNode("notes.md");
+    tauriApiMock.pickProjectFolder.mockResolvedValueOnce({
+      rootPath: "/novel",
+      tree: [chapter, notes],
+    });
+    mockMarkdownReads({
+      "chapter-1.md": "# Chapter 1\n\nThe lantern flickered.",
+      "notes.md": "# Notes\n\nOld clue.",
+    });
+
+    render(<App />);
+
+    await user.click(screen.getByRole("button", { name: "Open Folder" }));
+    await user.click(await screen.findByRole("button", { name: "Open notes.md" }));
+    await user.click(screen.getByRole("button", { name: "Edit Text" }));
+    await user.click(screen.getByRole("button", { name: "Save" }));
+    await user.click(screen.getByRole("button", { name: "Open chapter-1.md" }));
+    await user.type(screen.getByLabelText("Instruction"), "Tighten this");
+    await user.click(screen.getByRole("button", { name: "Prepare" }));
+
+    expect(tauriApiMock.copyText).toHaveBeenCalledWith(
+      expect.stringContaining("Changed lantern."),
+    );
   });
 });
 
@@ -171,4 +247,18 @@ function fileNode(relativePath: string): FileNode {
     modifiedAt: 10,
     size: 42,
   };
+}
+
+function mockMarkdownReads(markdownByPath: Record<string, string>) {
+  tauriApiMock.readMarkdownFile.mockImplementation(
+    async (_rootPath: string, filePath: string) => {
+      const markdown = markdownByPath[filePath];
+
+      if (markdown === undefined) {
+        throw new Error(`Unexpected markdown read: ${filePath}`);
+      }
+
+      return { file: fileNode(filePath), markdown };
+    },
+  );
 }

@@ -1,15 +1,23 @@
-import { useReducer } from "react";
+import { useReducer, useState } from "react";
 import { tauriApi } from "./api/tauri";
-import { FileTree } from "./components/FileTree";
+import { buildAssistantPrompt } from "./assistant/promptBuilder";
+import {
+  AssistantPane,
+  type AssistantRequest,
+} from "./components/AssistantPane";
 import { EditorPane } from "./components/EditorPane";
-import { buildIndex } from "./context/indexer";
+import { FileTree } from "./components/FileTree";
+import { buildIndex, selectRelevantContext } from "./context/indexer";
 import { normalizeMarkdownForSave } from "./editor/markdown";
 import { appReducer, initialAppState } from "./state/appReducer";
-import type { FileNode } from "./types";
+import type { FileNode, IndexedDocument } from "./types";
 import "./styles.css";
 
 export default function App() {
   const [state, dispatch] = useReducer(appReducer, initialAppState);
+  const [assistantSelection, setAssistantSelection] = useState<string | null>(
+    null,
+  );
 
   async function refreshTree(rootPath = state.rootPath) {
     if (!rootPath) {
@@ -17,11 +25,12 @@ export default function App() {
     }
 
     const tree = await tauriApi.readProjectTree(rootPath);
+    const indexedDocuments = await buildMarkdownIndex(rootPath, tree);
 
     dispatch({
       type: "treeUpdated",
       tree,
-      indexedDocuments: buildIndex([]),
+      indexedDocuments,
     });
 
     return tree;
@@ -38,11 +47,17 @@ export default function App() {
       return;
     }
 
+    const indexedDocuments = await buildMarkdownIndex(
+      project.rootPath,
+      project.tree,
+    );
+
+    setAssistantSelection(null);
     dispatch({
       type: "projectOpened",
       rootPath: project.rootPath,
       tree: project.tree,
-      indexedDocuments: buildIndex([]),
+      indexedDocuments,
     });
   }
 
@@ -57,6 +72,7 @@ export default function App() {
 
     const opened = await tauriApi.readMarkdownFile(state.rootPath, path);
 
+    setAssistantSelection(null);
     dispatch({
       type: "fileOpened",
       file: opened.file,
@@ -70,14 +86,22 @@ export default function App() {
     }
 
     const markdown = normalizeMarkdownForSave(state.openMarkdown);
+    const openFile = state.openFile;
 
     await tauriApi.writeMarkdownFile(
       state.rootPath,
-      state.openFile.relativePath,
+      openFile.relativePath,
       markdown,
     );
 
     dispatch({ type: "fileSaved", markdown });
+
+    if (openFile.isMarkdown) {
+      dispatch({
+        type: "indexedDocumentUpdated",
+        document: indexMarkdownFile(openFile, markdown),
+      });
+    }
   }
 
   async function createFile(parentPath: string) {
@@ -152,6 +176,7 @@ export default function App() {
     await refreshTree();
 
     if (isOpenEntry) {
+      setAssistantSelection(null);
       dispatch({ type: "fileClosed" });
     }
   }
@@ -209,6 +234,50 @@ export default function App() {
     dispatch(file ? { type: "openFileMetadataUpdated", file } : { type: "fileClosed" });
   }
 
+  async function submitAssistantRequest(request: AssistantRequest) {
+    if (!state.openFile) {
+      return;
+    }
+
+    const targetMarkdown = assistantSelection?.trim()
+      ? assistantSelection
+      : state.openMarkdown;
+    const context = selectRelevantContext({
+      documents: state.indexedDocuments,
+      targetPath: state.openFile.path,
+      instruction: `${request.instruction}\n${targetMarkdown}`,
+      limit: 4,
+    });
+    const prompt = buildAssistantPrompt({
+      mode: request.mode,
+      instruction: request.instruction,
+      targetLabel: assistantSelection?.trim()
+        ? `${state.openFile.relativePath} (current selection)`
+        : state.openFile.relativePath,
+      targetMarkdown,
+      context,
+    });
+
+    await tauriApi.copyText(prompt);
+
+    if (request.provider === "openai-subscription") {
+      await tauriApi.openExternal(state.settings.openaiUrl);
+    } else if (request.provider === "anthropic-subscription") {
+      await tauriApi.openExternal(state.settings.anthropicUrl);
+    }
+  }
+
+  function importAssistantResponse(response: string) {
+    if (!response.trim()) {
+      return;
+    }
+
+    dispatch({
+      type: "assistantMessageAdded",
+      message: { role: "assistant", content: response },
+    });
+  }
+
   return (
     <main className="app-shell">
       <aside className="file-pane">
@@ -236,10 +305,15 @@ export default function App() {
           dispatch({ type: "editorChanged", markdown })
         }
         onSave={saveFile}
+        onSelectionChange={setAssistantSelection}
       />
-      <aside className="assistant-pane">
-        <h2>Assistant</h2>
-      </aside>
+      <AssistantPane
+        defaultProvider={state.settings.defaultProvider}
+        onSubmit={(request) => {
+          void submitAssistantRequest(request);
+        }}
+        onImport={importAssistantResponse}
+      />
     </main>
   );
 }
@@ -306,4 +380,40 @@ function findFileNode(nodes: FileNode[], relativePath: string): FileNode | null 
   }
 
   return null;
+}
+
+async function buildMarkdownIndex(
+  rootPath: string,
+  tree: FileNode[],
+): Promise<IndexedDocument[]> {
+  const reads = flattenMarkdownFiles(tree).map(async (file) => {
+    const opened = await tauriApi.readMarkdownFile(rootPath, file.relativePath);
+    return indexMarkdownFile(opened.file, opened.markdown);
+  });
+  const settled = await Promise.allSettled(reads);
+
+  return settled.flatMap((result) =>
+    result.status === "fulfilled" ? [result.value] : [],
+  );
+}
+
+function flattenMarkdownFiles(nodes: FileNode[]): FileNode[] {
+  return nodes.flatMap((node) => {
+    if (node.kind === "directory") {
+      return flattenMarkdownFiles(node.children ?? []);
+    }
+
+    return node.isMarkdown ? [node] : [];
+  });
+}
+
+function indexMarkdownFile(file: FileNode, markdown: string): IndexedDocument {
+  return buildIndex([
+    {
+      path: file.path,
+      relativePath: file.relativePath,
+      markdown,
+      modifiedAt: file.modifiedAt,
+    },
+  ])[0];
 }
