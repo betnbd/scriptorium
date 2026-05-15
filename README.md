@@ -22,6 +22,17 @@ npm install
 npm run tauri:dev
 ```
 
+## Local Desktop Launch
+
+For this Ubuntu workstation, use the native release binary or the Debian package instead of the AppImage target:
+
+```bash
+npm run tauri:build
+./src-tauri/target/release/draftagent
+```
+
+The build is configured to produce the Debian bundle at `src-tauri/target/release/bundle/deb/` and to avoid AppImage packaging, which can launch a bundled WebKitGTK helper process that crashes on this machine.
+
 ## Validation
 
 ```bash
