@@ -16,6 +16,7 @@ const tauriApiMock = vi.hoisted(() => ({
   moveEntry: vi.fn(),
   copyText: vi.fn(),
   openExternal: vi.fn(),
+  sendLmStudioRequest: vi.fn(),
 }));
 
 vi.mock("./api/tauri", () => ({
@@ -80,6 +81,7 @@ describe("App", () => {
     tauriApiMock.moveEntry.mockReset();
     tauriApiMock.copyText.mockReset();
     tauriApiMock.openExternal.mockReset();
+    tauriApiMock.sendLmStudioRequest.mockReset();
   });
 
   afterEach(() => {
@@ -217,6 +219,119 @@ describe("App", () => {
       expect.stringContaining("The house is haunted."),
     );
     expect(tauriApiMock.openExternal).toHaveBeenCalledWith("https://chatgpt.com/");
+  });
+
+  it("sends LM Studio requests directly and imports the response", async () => {
+    const user = userEvent.setup();
+    const chapter = fileNode("chapter-1.md");
+    const notes = fileNode("notes.md");
+    tauriApiMock.pickProjectFolder.mockResolvedValueOnce({
+      rootPath: "/novel",
+      tree: [chapter, notes],
+    });
+    mockMarkdownReads({
+      "chapter-1.md": "# Chapter 1\n\nOld text.",
+      "notes.md": "# Notes\n\nThe house is haunted.",
+    });
+    tauriApiMock.sendLmStudioRequest.mockResolvedValueOnce(
+      "# Chapter 1\n\nNew local text.",
+    );
+
+    render(<App />);
+
+    await user.click(screen.getByRole("button", { name: "Open Folder" }));
+    await user.click(
+      await screen.findByRole("button", { name: "Open chapter-1.md" }),
+    );
+    await user.selectOptions(screen.getByLabelText("Provider"), "lm-studio");
+    await user.type(screen.getByLabelText("Instruction"), "Rewrite locally");
+    await user.click(screen.getByRole("button", { name: "Prepare" }));
+
+    expect(tauriApiMock.sendLmStudioRequest).toHaveBeenCalledWith(
+      "http://127.0.0.1:1234/v1",
+      "local-model",
+      expect.stringContaining("Rewrite locally"),
+    );
+    expect(tauriApiMock.sendLmStudioRequest).toHaveBeenCalledWith(
+      "http://127.0.0.1:1234/v1",
+      "local-model",
+      expect.stringContaining("Old text."),
+    );
+    expect(tauriApiMock.copyText).not.toHaveBeenCalled();
+    expect(tauriApiMock.openExternal).not.toHaveBeenCalled();
+    expect(screen.getByLabelText("Current markdown")).toHaveTextContent(
+      "# Chapter 1 New local text.",
+    );
+    expect(screen.getByText("Imported assistant result.")).toBeInTheDocument();
+  });
+
+  it("does not import a stale LM Studio response after switching files", async () => {
+    const user = userEvent.setup();
+    const chapter = fileNode("chapter-1.md");
+    const scene = fileNode("scene.md");
+    let resolveLocalResponse: (value: string) => void = () => undefined;
+    tauriApiMock.pickProjectFolder.mockResolvedValueOnce({
+      rootPath: "/novel",
+      tree: [chapter, scene],
+    });
+    mockMarkdownReads({
+      "chapter-1.md": "# Chapter 1\n\nOld text.",
+      "scene.md": "# Scene\n\nDifferent text.",
+    });
+    tauriApiMock.sendLmStudioRequest.mockReturnValueOnce(
+      new Promise((resolve) => {
+        resolveLocalResponse = resolve;
+      }),
+    );
+
+    render(<App />);
+
+    await user.click(screen.getByRole("button", { name: "Open Folder" }));
+    await user.click(
+      await screen.findByRole("button", { name: "Open chapter-1.md" }),
+    );
+    await user.selectOptions(screen.getByLabelText("Provider"), "lm-studio");
+    await user.click(screen.getByRole("button", { name: "Prepare" }));
+    await user.click(await screen.findByRole("button", { name: "Open scene.md" }));
+    resolveLocalResponse("# Chapter 1\n\nLate response.");
+
+    expect(await screen.findByRole("heading", { name: "scene.md" })).toBeInTheDocument();
+    expect(screen.getByLabelText("Current markdown")).toHaveTextContent(
+      "# Scene Different text.",
+    );
+    expect(
+      screen.queryByText("Imported assistant result."),
+    ).not.toBeInTheDocument();
+  });
+
+  it("alerts when LM Studio requests fail", async () => {
+    const user = userEvent.setup();
+    const chapter = fileNode("chapter-1.md");
+    const alert = vi.spyOn(window, "alert").mockImplementation(() => undefined);
+    tauriApiMock.pickProjectFolder.mockResolvedValueOnce({
+      rootPath: "/novel",
+      tree: [chapter],
+    });
+    mockMarkdownReads({
+      "chapter-1.md": "# Chapter 1\n\nOld text.",
+    });
+    tauriApiMock.sendLmStudioRequest.mockRejectedValueOnce(
+      new Error("LM Studio is unavailable."),
+    );
+
+    render(<App />);
+
+    await user.click(screen.getByRole("button", { name: "Open Folder" }));
+    await user.click(
+      await screen.findByRole("button", { name: "Open chapter-1.md" }),
+    );
+    await user.selectOptions(screen.getByLabelText("Provider"), "lm-studio");
+    await user.click(screen.getByRole("button", { name: "Prepare" }));
+
+    expect(alert).toHaveBeenCalledWith("LM Studio is unavailable.");
+    expect(screen.getByLabelText("Current markdown")).toHaveTextContent(
+      "# Chapter 1 Old text.",
+    );
   });
 
   it("uses saved Markdown edits in later assistant context", async () => {

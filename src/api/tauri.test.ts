@@ -72,4 +72,29 @@ describe("createTauriApi", () => {
       path: "drafts/chapter-1.md",
     });
   });
+
+  it("invokes LM Studio requests with the OpenAI-compatible request shape", async () => {
+    const invoke = vi.fn().mockResolvedValue({ content: "Local response." });
+    const api = createTauriApi({
+      invoke,
+      open: vi.fn(),
+      writeText: vi.fn(),
+      openUrl: vi.fn(),
+    });
+
+    const result = await api.sendLmStudioRequest(
+      "http://127.0.0.1:1234/v1",
+      "local-model",
+      "Revise this scene.",
+    );
+
+    expect(invoke).toHaveBeenCalledWith("send_lm_studio_request", {
+      request: {
+        baseUrl: "http://127.0.0.1:1234/v1",
+        model: "local-model",
+        prompt: "Revise this scene.",
+      },
+    });
+    expect(result).toBe("Local response.");
+  });
 });

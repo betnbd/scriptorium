@@ -9,6 +9,7 @@ pub fn run() {
         .plugin(tauri_plugin_clipboard_manager::init())
         .plugin(tauri_plugin_opener::init())
         .invoke_handler(tauri::generate_handler![
+            commands::lm_studio::send_lm_studio_request,
             commands::workspace::read_project_tree,
             commands::workspace::read_markdown_file,
             commands::workspace::write_markdown_file,

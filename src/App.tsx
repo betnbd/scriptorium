@@ -1,4 +1,4 @@
-import { useReducer, useState } from "react";
+import { useReducer, useRef, useState } from "react";
 import { tauriApi } from "./api/tauri";
 import { applyAssistantResult } from "./assistant/applyResult";
 import { buildAssistantPrompt } from "./assistant/promptBuilder";
@@ -21,6 +21,14 @@ export default function App() {
     null,
   );
   const [assistantMode, setAssistantMode] = useState<AssistantMode>("rewrite");
+  const liveEditorRef = useRef<{
+    relativePath: string | null;
+    markdown: string;
+  }>({ relativePath: null, markdown: "" });
+  liveEditorRef.current = {
+    relativePath: state.openFile?.relativePath ?? null,
+    markdown: state.openMarkdown,
+  };
 
   async function refreshTree(rootPath = state.rootPath) {
     if (!rootPath) {
@@ -244,6 +252,8 @@ export default function App() {
 
     setAssistantMode(request.mode);
 
+    const submittedFilePath = state.openFile.relativePath;
+    const submittedMarkdown = state.openMarkdown;
     const targetMarkdown = assistantSelection?.trim()
       ? assistantSelection
       : state.openMarkdown;
@@ -263,6 +273,26 @@ export default function App() {
       context,
     });
 
+    if (request.provider === "lm-studio") {
+      try {
+        const response = await tauriApi.sendLmStudioRequest(
+          state.settings.lmStudioBaseUrl,
+          state.settings.lmStudioModel,
+          prompt,
+        );
+
+        importAssistantResponse(
+          response,
+          request.mode,
+          submittedFilePath,
+          submittedMarkdown,
+        );
+      } catch (error) {
+        window.alert(error instanceof Error ? error.message : String(error));
+      }
+      return;
+    }
+
     await tauriApi.copyText(prompt);
 
     if (request.provider === "openai-subscription") {
@@ -272,14 +302,35 @@ export default function App() {
     }
   }
 
-  function importAssistantResponse(response: string, mode = assistantMode) {
+  function importAssistantResponse(
+    response: string,
+    mode = assistantMode,
+    expectedFilePath?: string,
+    expectedMarkdown?: string,
+  ) {
     if (!response.trim()) {
+      return;
+    }
+
+    if (expectedFilePath && liveEditorRef.current.relativePath !== expectedFilePath) {
+      return;
+    }
+
+    if (
+      expectedMarkdown !== undefined &&
+      liveEditorRef.current.markdown !== expectedMarkdown
+    ) {
+      window.alert("The open file changed before the LM Studio response returned.");
       return;
     }
 
     try {
       const parsed = parseAssistantResponse(mode, response);
-      const nextMarkdown = applyAssistantResult(state.openMarkdown, parsed);
+      const currentMarkdown =
+        expectedFilePath === undefined
+          ? state.openMarkdown
+          : liveEditorRef.current.markdown;
+      const nextMarkdown = applyAssistantResult(currentMarkdown, parsed);
 
       setAssistantMode(mode);
 

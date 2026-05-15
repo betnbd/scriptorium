@@ -39,6 +39,11 @@ export interface TauriApi {
   ): Promise<void>;
   copyText(text: string): Promise<void>;
   openExternal(url: string): Promise<void>;
+  sendLmStudioRequest(
+    baseUrl: string,
+    model: string,
+    prompt: string,
+  ): Promise<string>;
 }
 
 export function createTauriApi(deps: TauriApiDeps): TauriApi {
@@ -102,6 +107,17 @@ export function createTauriApi(deps: TauriApiDeps): TauriApi {
 
     openExternal(url) {
       return deps.openUrl(url);
+    },
+
+    async sendLmStudioRequest(baseUrl, model, prompt) {
+      const response = await deps.invoke<{ content: string }>(
+        "send_lm_studio_request",
+        {
+          request: { baseUrl, model, prompt },
+        },
+      );
+
+      return response.content;
     },
   };
 }
