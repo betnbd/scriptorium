@@ -13,7 +13,7 @@
     "tauri:test": "cargo test --manifest-path src-tauri/Cargo.toml",
     "test:unit": "vitest run",
     "test:watch": "vitest",
-    "test:e2e": "playwright test --pass-with-no-tests"
+    "test:e2e": "playwright test"
   },
   "dependencies": {
     "@tauri-apps/api": "^2",
