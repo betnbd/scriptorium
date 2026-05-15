@@ -21,6 +21,7 @@ export interface TauriApiDeps {
 
 export interface TauriApi {
   pickProjectFolder(): Promise<{ rootPath: string; tree: FileNode[] } | null>;
+  readProjectTree(rootPath: string): Promise<FileNode[]>;
   readMarkdownFile(rootPath: string, filePath: string): Promise<OpenFile>;
   writeMarkdownFile(
     rootPath: string,
@@ -41,6 +42,9 @@ export interface TauriApi {
 }
 
 export function createTauriApi(deps: TauriApiDeps): TauriApi {
+  const readProjectTree = (rootPath: string) =>
+    deps.invoke<FileNode[]>("read_project_tree", { rootPath });
+
   return {
     async pickProjectFolder() {
       const selected = await deps.open({ directory: true, multiple: false });
@@ -49,11 +53,13 @@ export function createTauriApi(deps: TauriApiDeps): TauriApi {
         return null;
       }
 
-      const tree = await deps.invoke<FileNode[]>("read_project_tree", {
-        rootPath: selected,
-      });
+      const tree = await readProjectTree(selected);
 
       return { rootPath: selected, tree };
+    },
+
+    readProjectTree(rootPath) {
+      return readProjectTree(rootPath);
     },
 
     readMarkdownFile(rootPath, filePath) {

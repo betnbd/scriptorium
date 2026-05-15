@@ -26,6 +26,8 @@ export type AppAction =
       indexedDocuments: IndexedDocument[];
     }
   | { type: "fileOpened"; file: OpenFile["file"]; markdown: string }
+  | { type: "openFileMetadataUpdated"; file: OpenFile["file"] }
+  | { type: "fileClosed" }
   | { type: "editorChanged"; markdown: string }
   | { type: "fileSaved"; markdown: string }
   | {
@@ -80,6 +82,23 @@ export function appReducer(state: AppState, action: AppAction): AppState {
         openFile: action.file,
         openMarkdown: action.markdown,
         savedMarkdown: action.markdown,
+        isDirty: false,
+      };
+    case "openFileMetadataUpdated":
+      if (!state.openFile) {
+        return state;
+      }
+
+      return {
+        ...state,
+        openFile: action.file,
+      };
+    case "fileClosed":
+      return {
+        ...state,
+        openFile: null,
+        openMarkdown: "",
+        savedMarkdown: "",
         isDirty: false,
       };
     case "editorChanged":
