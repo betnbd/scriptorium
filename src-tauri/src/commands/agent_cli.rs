@@ -10,7 +10,7 @@ use std::time::{Duration, Instant};
 
 const AGENT_TIMEOUT: Duration = Duration::from_secs(240);
 
-#[derive(Debug, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "kebab-case")]
 pub enum CliAgentProvider {
     OpenaiSubscription,
@@ -31,6 +31,15 @@ pub struct CliAgentResponse {
     pub content: String,
 }
 
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CliAgentStatus {
+    pub provider: CliAgentProvider,
+    pub installed: bool,
+    pub authenticated: bool,
+    pub detail: String,
+}
+
 #[derive(Debug, PartialEq, Eq)]
 struct AgentCommandSpec {
     program: OsString,
@@ -47,11 +56,146 @@ pub fn send_cli_agent_request(request: CliAgentRequest) -> Result<CliAgentRespon
     Ok(CliAgentResponse { content })
 }
 
+#[tauri::command]
+pub fn check_cli_agent_status(provider: CliAgentProvider) -> Result<CliAgentStatus, String> {
+    check_cli_agent_status_with_resolver(provider, resolve_command)
+}
+
+#[tauri::command]
+pub fn start_cli_agent_login(provider: CliAgentProvider) -> Result<(), String> {
+    let command = login_command_for_provider(&provider);
+    let login_program = command
+        .first()
+        .ok_or_else(|| "Provider login command was empty.".to_string())?;
+    resolve_command(login_program)?;
+
+    let terminal = resolve_terminal().ok_or_else(|| {
+        format!(
+            "Could not find a terminal app. Open a terminal and run: {}",
+            command.join(" ")
+        )
+    })?;
+    let script = format!(
+        "{}; printf '\\nLogin flow finished. Press Enter to close...'; read _",
+        command.join(" ")
+    );
+    let args = terminal_args(&terminal, &script);
+
+    Command::new(&terminal)
+        .args(args)
+        .spawn()
+        .map_err(|err| format!("Could not open terminal login flow: {err}"))?;
+
+    Ok(())
+}
+
 fn command_spec_for_provider(
     provider: &CliAgentProvider,
     root: &Path,
 ) -> Result<AgentCommandSpec, String> {
     command_spec_for_provider_with_resolver(provider, root, resolve_command)
+}
+
+fn check_cli_agent_status_with_resolver<F>(
+    provider: CliAgentProvider,
+    resolver: F,
+) -> Result<CliAgentStatus, String>
+where
+    F: Fn(&str) -> Result<OsString, String>,
+{
+    let command = status_command_for_provider(&provider);
+    let Some(program_name) = command.first() else {
+        return Err("Provider status command was empty.".to_string());
+    };
+
+    let program = match resolver(program_name) {
+        Ok(program) => program,
+        Err(error) => {
+            return Ok(CliAgentStatus {
+                provider,
+                installed: false,
+                authenticated: false,
+                detail: error,
+            });
+        }
+    };
+    let output = Command::new(program)
+        .args(command.iter().skip(1))
+        .output()
+        .map_err(|err| format!("Could not check provider status: {err}"))?;
+    let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
+    let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
+
+    Ok(parse_status_output(
+        provider,
+        output.status.success(),
+        &stdout,
+        &stderr,
+    ))
+}
+
+fn status_command_for_provider(provider: &CliAgentProvider) -> Vec<String> {
+    match provider {
+        CliAgentProvider::OpenaiSubscription => {
+            vec!["codex".into(), "login".into(), "status".into()]
+        }
+        CliAgentProvider::AnthropicSubscription => {
+            vec!["claude".into(), "auth".into(), "status".into()]
+        }
+    }
+}
+
+fn login_command_for_provider(provider: &CliAgentProvider) -> Vec<String> {
+    match provider {
+        CliAgentProvider::OpenaiSubscription => vec!["codex".into(), "login".into()],
+        CliAgentProvider::AnthropicSubscription => {
+            vec!["claude".into(), "auth".into(), "login".into()]
+        }
+    }
+}
+
+fn parse_status_output(
+    provider: CliAgentProvider,
+    success: bool,
+    stdout: &str,
+    stderr: &str,
+) -> CliAgentStatus {
+    if provider == CliAgentProvider::AnthropicSubscription {
+        if let Ok(value) = serde_json::from_str::<serde_json::Value>(stdout) {
+            let authenticated = value["loggedIn"].as_bool().unwrap_or(false);
+            let method = value["authMethod"].as_str().unwrap_or("Claude Code");
+            let subscription = value["subscriptionType"].as_str().unwrap_or("subscription");
+
+            return CliAgentStatus {
+                provider,
+                installed: true,
+                authenticated,
+                detail: if authenticated {
+                    format!("Connected with {method} ({subscription}).")
+                } else {
+                    "Claude Code is installed but not signed in.".to_string()
+                },
+            };
+        }
+    }
+
+    let authenticated = success && stdout.to_lowercase().contains("logged in");
+    let detail = if authenticated {
+        stdout.lines().next().unwrap_or("Connected.").to_string()
+    } else if !stderr.is_empty() {
+        stderr.to_string()
+    } else if !stdout.is_empty() {
+        stdout.to_string()
+    } else {
+        "CLI is installed but not signed in.".to_string()
+    };
+
+    CliAgentStatus {
+        provider,
+        installed: true,
+        authenticated,
+        detail,
+    }
 }
 
 fn command_spec_for_provider_with_resolver<F>(
@@ -206,6 +350,58 @@ fn resolve_command(name: &str) -> Result<OsString, String> {
         .ok_or_else(|| format!("{name} was not found. Sign in or install the provider CLI first."))
 }
 
+fn resolve_terminal() -> Option<OsString> {
+    if let Some(terminal) = env::var_os("TERMINAL") {
+        if command_exists(&terminal) {
+            return Some(terminal);
+        }
+    }
+
+    [
+        "xdg-terminal-exec",
+        "kgx",
+        "gnome-terminal",
+        "x-terminal-emulator",
+        "konsole",
+        "xfce4-terminal",
+        "alacritty",
+        "wezterm",
+        "foot",
+    ]
+    .iter()
+    .find_map(|name| resolve_command(name).ok())
+}
+
+fn terminal_args(terminal: &OsString, script: &str) -> Vec<OsString> {
+    let terminal_name = Path::new(terminal)
+        .file_name()
+        .and_then(|name| name.to_str())
+        .unwrap_or_default();
+
+    match terminal_name {
+        "gnome-terminal" | "kgx" | "xdg-terminal-exec" => {
+            vec!["--".into(), "bash".into(), "-lc".into(), script.into()]
+        }
+        "wezterm" => vec![
+            "start".into(),
+            "--".into(),
+            "bash".into(),
+            "-lc".into(),
+            script.into(),
+        ],
+        _ => vec!["-e".into(), "bash".into(), "-lc".into(), script.into()],
+    }
+}
+
+fn command_exists(program: &OsString) -> bool {
+    let path = PathBuf::from(program);
+    if path.is_absolute() || path.components().count() > 1 {
+        return path.is_file();
+    }
+
+    resolve_command(&program.to_string_lossy()).is_ok()
+}
+
 fn path_candidates(name: &str) -> Vec<PathBuf> {
     env::var_os("PATH")
         .map(|path| {
@@ -326,6 +522,47 @@ mod tests {
 
         assert_eq!(result, "final answer");
         assert!(!path.exists());
+    }
+
+    #[test]
+    fn parses_codex_login_status() {
+        let status = parse_status_output(
+            CliAgentProvider::OpenaiSubscription,
+            true,
+            "Logged in using ChatGPT",
+            "",
+        );
+
+        assert!(status.installed);
+        assert!(status.authenticated);
+        assert_eq!(status.detail, "Logged in using ChatGPT");
+    }
+
+    #[test]
+    fn parses_claude_login_status_without_exposing_account_details() {
+        let status = parse_status_output(
+            CliAgentProvider::AnthropicSubscription,
+            true,
+            r#"{"loggedIn":true,"authMethod":"claude.ai","email":"person@example.test","subscriptionType":"pro"}"#,
+            "",
+        );
+
+        assert!(status.installed);
+        assert!(status.authenticated);
+        assert_eq!(status.detail, "Connected with claude.ai (pro).");
+        assert!(!status.detail.contains('@'));
+    }
+
+    #[test]
+    fn builds_terminal_login_commands() {
+        assert_eq!(
+            login_command_for_provider(&CliAgentProvider::OpenaiSubscription),
+            vec!["codex", "login"]
+        );
+        assert_eq!(
+            login_command_for_provider(&CliAgentProvider::AnthropicSubscription),
+            vec!["claude", "auth", "login"]
+        );
     }
 
     fn fake_resolver(name: &str) -> Result<OsString, String> {

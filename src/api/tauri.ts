@@ -2,7 +2,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { writeText } from "@tauri-apps/plugin-clipboard-manager";
 import { open } from "@tauri-apps/plugin-dialog";
 import { open as openUrl } from "@tauri-apps/plugin-shell";
-import type { AppSettings, FileNode, OpenFile } from "../types";
+import type { AppSettings, FileNode, OpenFile, ProviderStatus } from "../types";
 
 type Invoke = <T>(command: string, args?: Record<string, unknown>) => Promise<T>;
 type OpenDialog = (options: {
@@ -58,6 +58,12 @@ export interface TauriApi {
     rootPath: string,
     prompt: string,
   ): Promise<string>;
+  checkCliAgentStatus(
+    provider: "openai-subscription" | "anthropic-subscription",
+  ): Promise<ProviderStatus>;
+  startCliAgentLogin(
+    provider: "openai-subscription" | "anthropic-subscription",
+  ): Promise<void>;
 }
 
 export function createTauriApi(deps: TauriApiDeps): TauriApi {
@@ -174,18 +180,39 @@ export function createTauriApi(deps: TauriApiDeps): TauriApi {
 
       return response.content;
     },
+
+    checkCliAgentStatus(provider) {
+      return deps.invoke<ProviderStatus>("check_cli_agent_status", {
+        provider,
+      });
+    },
+
+    startCliAgentLogin(provider) {
+      return deps.invoke<void>("start_cli_agent_login", {
+        provider,
+      });
+    },
   };
 }
 
 export function createBrowserTauriApi(): TauriApi {
   return createTauriApi({
-    async invoke<T>(command: string): Promise<T> {
+    async invoke<T>(command: string, args?: Record<string, unknown>): Promise<T> {
       if (command === "load_settings" || command === "load_project_env") {
         return null as T;
       }
 
       if (command === "read_project_tree") {
         return [] as T;
+      }
+
+      if (command === "check_cli_agent_status") {
+        return {
+          provider: args?.provider,
+          installed: false,
+          authenticated: false,
+          detail: "Provider status is available in the desktop app.",
+        } as T;
       }
 
       throw new Error("Desktop file access is available in the DraftAgent app.");

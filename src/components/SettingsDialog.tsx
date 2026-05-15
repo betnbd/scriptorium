@@ -1,18 +1,27 @@
 import { useEffect, useState } from "react";
-import type { AppSettings, ProviderId } from "../types";
+import { CircleAlert, CircleCheck, RefreshCw, Terminal } from "lucide-react";
+import type { AppSettings, ProviderId, ProviderStatus } from "../types";
 
 interface SettingsDialogProps {
   settings: AppSettings;
+  providerStatuses?: Partial<Record<SubscriptionProviderId, ProviderStatus>>;
+  isProviderStatusLoading?: boolean;
   onSave: (settings: AppSettings) => void | Promise<void>;
   onClose: () => void;
   onReindex?: () => void;
+  onRefreshProviderStatuses?: () => void;
+  onStartProviderLogin?: (provider: SubscriptionProviderId) => void;
 }
 
 export function SettingsDialog({
   settings,
+  providerStatuses = {},
+  isProviderStatusLoading = false,
   onSave,
   onClose,
   onReindex,
+  onRefreshProviderStatuses,
+  onStartProviderLogin,
 }: SettingsDialogProps) {
   const [draft, setDraft] = useState(settings);
 
@@ -64,19 +73,37 @@ export function SettingsDialog({
           </label>
 
           <section className="provider-login-settings">
-            <h3>Subscription sign-in</h3>
-            <p>
-              DraftAgent uses your local CLI sessions for subscription-backed
-              providers. Sign in once in a terminal, then return here.
-            </p>
-            <div>
-              <span>OpenAI</span>
-              <code>codex login</code>
+            <div className="provider-login-header">
+              <div>
+                <h3>Provider connections</h3>
+                <p>
+                  DraftAgent never stores OpenAI or Anthropic passwords. It uses
+                  the authenticated local CLI sessions on this computer.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={onRefreshProviderStatuses}
+                disabled={isProviderStatusLoading}
+              >
+                <RefreshCw aria-hidden="true" size={14} />
+                Check
+              </button>
             </div>
-            <div>
-              <span>Anthropic</span>
-              <code>claude auth login</code>
-            </div>
+            <ProviderConnectionRow
+              command="codex login"
+              label="OpenAI"
+              status={providerStatuses["openai-subscription"]}
+              onStartLogin={() => onStartProviderLogin?.("openai-subscription")}
+            />
+            <ProviderConnectionRow
+              command="claude auth login"
+              label="Claude Code"
+              status={providerStatuses["anthropic-subscription"]}
+              onStartLogin={() =>
+                onStartProviderLogin?.("anthropic-subscription")
+              }
+            />
           </section>
 
           <label>
@@ -191,6 +218,56 @@ export function SettingsDialog({
           </div>
         </form>
       </section>
+    </div>
+  );
+}
+
+type SubscriptionProviderId = Extract<
+  ProviderId,
+  "openai-subscription" | "anthropic-subscription"
+>;
+
+function ProviderConnectionRow({
+  label,
+  command,
+  status,
+  onStartLogin,
+}: {
+  label: string;
+  command: string;
+  status?: ProviderStatus;
+  onStartLogin: () => void;
+}) {
+  const connected = Boolean(status?.authenticated);
+  const missing = status?.installed === false;
+
+  return (
+    <div className="provider-connection-row">
+      <div
+        className={
+          connected
+            ? "provider-connection-title is-connected"
+            : "provider-connection-title"
+        }
+      >
+        {connected ? (
+          <CircleCheck aria-hidden="true" size={16} />
+        ) : (
+          <CircleAlert aria-hidden="true" size={16} />
+        )}
+        <span>{label}</span>
+      </div>
+      <div className={connected ? "status-pill is-connected" : "status-pill"}>
+        {connected ? "Connected" : missing ? "CLI missing" : "Needs sign-in"}
+      </div>
+      <div className="provider-connection-detail">
+        <code>{command}</code>
+        <span>{status?.detail ?? "Status has not been checked yet."}</span>
+      </div>
+      <button type="button" onClick={onStartLogin}>
+        <Terminal aria-hidden="true" size={14} />
+        Sign in
+      </button>
     </div>
   );
 }

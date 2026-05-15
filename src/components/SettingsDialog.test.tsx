@@ -21,6 +21,7 @@ describe("SettingsDialog", () => {
       screen.getByLabelText("Default provider"),
       "anthropic-subscription",
     );
+    expect(screen.getByText("Provider connections")).toBeInTheDocument();
     expect(screen.getByText("codex login")).toBeInTheDocument();
     expect(screen.getByText("claude auth login")).toBeInTheDocument();
     await user.clear(screen.getByLabelText("LM Studio model"));
@@ -93,5 +94,43 @@ describe("SettingsDialog", () => {
     await user.click(screen.getByText("Reindex project"));
 
     expect(onReindex).toHaveBeenCalled();
+  });
+
+  it("shows provider status and starts CLI login flows", async () => {
+    const user = userEvent.setup();
+    const onRefreshProviderStatuses = vi.fn();
+    const onStartProviderLogin = vi.fn();
+
+    render(
+      <SettingsDialog
+        settings={defaultSettings}
+        providerStatuses={{
+          "openai-subscription": {
+            provider: "openai-subscription",
+            installed: true,
+            authenticated: true,
+            detail: "Logged in using ChatGPT",
+          },
+          "anthropic-subscription": {
+            provider: "anthropic-subscription",
+            installed: true,
+            authenticated: false,
+            detail: "Claude Code is installed but not signed in.",
+          },
+        }}
+        onSave={vi.fn()}
+        onClose={vi.fn()}
+        onRefreshProviderStatuses={onRefreshProviderStatuses}
+        onStartProviderLogin={onStartProviderLogin}
+      />,
+    );
+
+    expect(screen.getByText("Logged in using ChatGPT")).toBeInTheDocument();
+    expect(screen.getByText("Claude Code is installed but not signed in.")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Check" }));
+    await user.click(screen.getAllByRole("button", { name: "Sign in" })[1]);
+
+    expect(onRefreshProviderStatuses).toHaveBeenCalledOnce();
+    expect(onStartProviderLogin).toHaveBeenCalledWith("anthropic-subscription");
   });
 });

@@ -28,11 +28,16 @@ import type {
   AssistantMode,
   FileNode,
   IndexedDocument,
+  ProviderStatus,
 } from "./types";
 import "./styles.css";
 
 export default function App() {
   const [state, dispatch] = useReducer(appReducer, initialAppState);
+  const [providerStatuses, setProviderStatuses] = useState<
+    Partial<Record<SubscriptionProviderId, ProviderStatus>>
+  >({});
+  const [isProviderStatusLoading, setIsProviderStatusLoading] = useState(false);
   const [assistantSelection, setAssistantSelection] = useState<string | null>(
     null,
   );
@@ -120,6 +125,10 @@ export default function App() {
     return () => {
       isMounted = false;
     };
+  }, []);
+
+  useEffect(() => {
+    void refreshProviderStatuses();
   }, []);
 
   async function refreshTree(rootPath = state.rootPath) {
@@ -255,6 +264,51 @@ export default function App() {
         );
         dispatch({ type: "treeUpdated", tree, indexedDocuments });
       }
+    } catch (error) {
+      showError(error);
+    }
+  }
+
+  async function refreshProviderStatuses() {
+    setIsProviderStatusLoading(true);
+
+    try {
+      const results = await Promise.allSettled(
+        subscriptionProviders.map(async (provider) => {
+          const status = await tauriApi.checkCliAgentStatus(provider);
+          return [provider, status] as const;
+        }),
+      );
+
+      setProviderStatuses(
+        Object.fromEntries(
+          results.map((result, index) => {
+            const provider = subscriptionProviders[index];
+
+            if (result.status === "fulfilled") {
+              return result.value;
+            }
+
+            return [
+              provider,
+              {
+                provider,
+                installed: false,
+                authenticated: false,
+                detail: messageFromError(result.reason),
+              },
+            ] as const;
+          }),
+        ),
+      );
+    } finally {
+      setIsProviderStatusLoading(false);
+    }
+  }
+
+  async function startProviderLogin(provider: SubscriptionProviderId) {
+    try {
+      await tauriApi.startCliAgentLogin(provider);
     } catch (error) {
       showError(error);
     }
@@ -627,8 +681,17 @@ export default function App() {
         <AssistantPane
           key={state.settings.defaultProvider}
           defaultProvider={state.settings.defaultProvider}
+          canSubmit={Boolean(state.openFile)}
           isRunning={isAssistantRunning}
           messages={state.assistantMessages}
+          providerStatuses={providerStatuses}
+          targetLabel={
+            state.openFile
+              ? assistantSelection?.trim()
+                ? `${state.openFile.relativePath} selection`
+                : state.openFile.relativePath
+              : null
+          }
           onSubmit={(request) => {
             void submitAssistantRequest(request);
           }}
@@ -638,9 +701,13 @@ export default function App() {
       {isSettingsOpen ? (
         <SettingsDialog
           settings={state.settings}
+          providerStatuses={providerStatuses}
+          isProviderStatusLoading={isProviderStatusLoading}
           onSave={saveSettings}
           onClose={() => setIsSettingsOpen(false)}
           onReindex={() => void reindexProject()}
+          onRefreshProviderStatuses={() => void refreshProviderStatuses()}
+          onStartProviderLogin={(provider) => void startProviderLogin(provider)}
         />
       ) : null}
     </main>
@@ -667,6 +734,16 @@ function PaneResizer({
     />
   );
 }
+
+type SubscriptionProviderId = Extract<
+  AppSettings["defaultProvider"],
+  "openai-subscription" | "anthropic-subscription"
+>;
+
+const subscriptionProviders: readonly SubscriptionProviderId[] = [
+  "openai-subscription",
+  "anthropic-subscription",
+];
 
 function messageFromError(error: unknown): string {
   return error instanceof Error ? error.message : String(error);

@@ -124,6 +124,41 @@ describe("createTauriApi", () => {
     expect(result).toBe("Built-in response.");
   });
 
+  it("checks provider status and starts terminal login flows", async () => {
+    const invoke = vi
+      .fn()
+      .mockResolvedValueOnce({
+        provider: "anthropic-subscription",
+        installed: true,
+        authenticated: true,
+        detail: "Connected.",
+      })
+      .mockResolvedValueOnce(undefined);
+    const api = createTauriApi({
+      invoke,
+      open: vi.fn(),
+      writeText: vi.fn(),
+      openUrl: vi.fn(),
+    });
+
+    await expect(
+      api.checkCliAgentStatus("anthropic-subscription"),
+    ).resolves.toEqual(
+      expect.objectContaining({
+        provider: "anthropic-subscription",
+        authenticated: true,
+      }),
+    );
+    await api.startCliAgentLogin("anthropic-subscription");
+
+    expect(invoke).toHaveBeenNthCalledWith(1, "check_cli_agent_status", {
+      provider: "anthropic-subscription",
+    });
+    expect(invoke).toHaveBeenNthCalledWith(2, "start_cli_agent_login", {
+      provider: "anthropic-subscription",
+    });
+  });
+
   it("loads and saves app settings with camelCase settings payloads", async () => {
     const savedSettings = {
       ...defaultSettings,

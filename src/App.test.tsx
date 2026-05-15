@@ -17,6 +17,8 @@ const tauriApiMock = vi.hoisted(() => ({
   copyText: vi.fn(),
   openExternal: vi.fn(),
   sendCliAgentRequest: vi.fn(),
+  checkCliAgentStatus: vi.fn(),
+  startCliAgentLogin: vi.fn(),
   sendLmStudioRequest: vi.fn(),
   loadSettings: vi.fn(),
   loadProjectEnv: vi.fn(),
@@ -86,6 +88,8 @@ describe("App", () => {
     tauriApiMock.copyText.mockReset();
     tauriApiMock.openExternal.mockReset();
     tauriApiMock.sendCliAgentRequest.mockReset();
+    tauriApiMock.checkCliAgentStatus.mockReset();
+    tauriApiMock.startCliAgentLogin.mockReset();
     tauriApiMock.sendLmStudioRequest.mockReset();
     tauriApiMock.loadSettings.mockReset();
     tauriApiMock.loadProjectEnv.mockReset();
@@ -93,6 +97,13 @@ describe("App", () => {
     tauriApiMock.loadSettings.mockResolvedValue(null);
     tauriApiMock.loadProjectEnv.mockResolvedValue(null);
     tauriApiMock.saveSettings.mockResolvedValue(undefined);
+    tauriApiMock.checkCliAgentStatus.mockImplementation(async (provider) => ({
+      provider,
+      installed: true,
+      authenticated: true,
+      detail: "Connected.",
+    }));
+    tauriApiMock.startCliAgentLogin.mockResolvedValue(undefined);
   });
 
   afterEach(() => {
@@ -110,8 +121,8 @@ describe("App", () => {
   it("describes subscription providers as built-in CLI routes", () => {
     render(<App />);
 
-    expect(screen.getByText(/OpenAI uses Codex CLI/)).toBeInTheDocument();
-    expect(screen.getAllByText(/Claude Code/).length).toBeGreaterThan(0);
+    expect(screen.getByText("How this works")).toBeInTheDocument();
+    expect(screen.getByText(/current file or selection/)).toBeInTheDocument();
   });
 
   it("opens settings, saves changes, and updates provider workflow", async () => {
@@ -124,6 +135,7 @@ describe("App", () => {
       screen.getByLabelText("Default provider"),
       "anthropic-subscription",
     );
+    expect(screen.getByText("Provider connections")).toBeInTheDocument();
     expect(screen.getByText("codex login")).toBeInTheDocument();
     expect(screen.getByText("claude auth login")).toBeInTheDocument();
     await user.click(screen.getByText("Save settings"));
@@ -293,7 +305,7 @@ describe("App", () => {
     );
     await user.click(screen.getByRole("button", { name: "Select Text" }));
     await user.type(screen.getByLabelText("Instruction"), "Make this more tense");
-    await user.click(screen.getByRole("button", { name: "Send" }));
+    await user.click(screen.getByRole("button", { name: "Send to OpenAI" }));
 
     expect(tauriApiMock.sendCliAgentRequest).toHaveBeenCalledWith(
       "openai-subscription",
@@ -345,7 +357,7 @@ describe("App", () => {
     );
     await user.selectOptions(screen.getByLabelText("Provider"), "lm-studio");
     await user.type(screen.getByLabelText("Instruction"), "Rewrite locally");
-    await user.click(screen.getByRole("button", { name: "Send" }));
+    await user.click(screen.getByRole("button", { name: "Send to LM Studio" }));
 
     expect(tauriApiMock.sendLmStudioRequest).toHaveBeenCalledWith(
       "http://127.0.0.1:1234/v1",
@@ -388,7 +400,7 @@ describe("App", () => {
       await screen.findByRole("button", { name: "Open chapter-1.md" }),
     );
     await user.selectOptions(screen.getByLabelText("Provider"), "lm-studio");
-    await user.click(screen.getByRole("button", { name: "Send" }));
+    await user.click(screen.getByRole("button", { name: "Send to LM Studio" }));
     await user.click(await screen.findByRole("button", { name: "Open scene.md" }));
     resolveLocalResponse("# Chapter 1\n\nLate response.");
 
@@ -419,7 +431,7 @@ describe("App", () => {
       await screen.findByRole("button", { name: "Open chapter-1.md" }),
     );
     await user.selectOptions(screen.getByLabelText("Provider"), "lm-studio");
-    await user.click(screen.getByRole("button", { name: "Send" }));
+    await user.click(screen.getByRole("button", { name: "Send to LM Studio" }));
 
     expect(await screen.findByText("LM Studio is unavailable.")).toBeInTheDocument();
     expect(screen.getByLabelText("Current markdown")).toHaveTextContent(
@@ -477,7 +489,7 @@ describe("App", () => {
     await user.click(screen.getByRole("button", { name: "Save" }));
     await user.click(screen.getByRole("button", { name: "Open chapter-1.md" }));
     await user.type(screen.getByLabelText("Instruction"), "Tighten this");
-    await user.click(screen.getByRole("button", { name: "Send" }));
+    await user.click(screen.getByRole("button", { name: "Send to OpenAI" }));
 
     expect(tauriApiMock.sendCliAgentRequest).toHaveBeenCalledWith(
       "openai-subscription",

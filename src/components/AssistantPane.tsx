@@ -1,5 +1,10 @@
 import { useState } from "react";
-import type { AssistantMessage, AssistantMode, ProviderId } from "../types";
+import type {
+  AssistantMessage,
+  AssistantMode,
+  ProviderId,
+  ProviderStatus,
+} from "../types";
 
 export interface AssistantRequest {
   provider: ProviderId;
@@ -10,7 +15,15 @@ export interface AssistantRequest {
 interface AssistantPaneProps {
   defaultProvider: ProviderId;
   messages: AssistantMessage[];
+  canSubmit?: boolean;
   isRunning?: boolean;
+  providerStatuses?: Partial<
+    Record<
+      Extract<ProviderId, "openai-subscription" | "anthropic-subscription">,
+      ProviderStatus
+    >
+  >;
+  targetLabel?: string | null;
   onSubmit: (request: AssistantRequest) => void;
   onImport: (response: string, mode: AssistantMode) => void;
 }
@@ -18,7 +31,10 @@ interface AssistantPaneProps {
 export function AssistantPane({
   defaultProvider,
   messages,
+  canSubmit = true,
   isRunning = false,
+  providerStatuses = {},
+  targetLabel = null,
   onSubmit,
   onImport,
 }: AssistantPaneProps) {
@@ -26,6 +42,13 @@ export function AssistantPane({
   const [mode, setMode] = useState<AssistantMode>("rewrite");
   const [instruction, setInstruction] = useState("");
   const [importText, setImportText] = useState("");
+  const providerStatus =
+    provider === "lm-studio" ? null : providerStatuses[provider];
+  const isProviderBlocked =
+    providerStatus !== null &&
+    providerStatus !== undefined &&
+    (!providerStatus.installed || !providerStatus.authenticated);
+  const sendDisabled = isRunning || !canSubmit || isProviderBlocked;
 
   return (
     <aside className="assistant-pane">
@@ -34,11 +57,26 @@ export function AssistantPane({
       </header>
 
       <div className="assistant-provider-note">
-        OpenAI uses Codex CLI. Anthropic uses Claude Code. Both run inside this
-        app with the open project context.
+        <strong>How this works</strong>
+        <span>
+          Open a Markdown file, choose a provider, write an instruction, then
+          send. DraftAgent gives the agent the current file or selection plus
+          relevant project context, then applies rewrites or diffs in the editor.
+        </span>
       </div>
 
       <div className="assistant-controls">
+        <div className="assistant-runtime">
+          <span>
+            Target
+            <strong>{targetLabel ?? "Open a Markdown file"}</strong>
+          </span>
+          <span>
+            Provider
+            <strong>{providerStatusLabel(providerStatus, provider)}</strong>
+          </span>
+        </div>
+
         <label>
           Provider
           <select
@@ -78,10 +116,10 @@ export function AssistantPane({
 
         <button
           type="button"
-          disabled={isRunning}
+          disabled={sendDisabled}
           onClick={() => onSubmit({ provider, mode, instruction })}
         >
-          {isRunning ? "Working..." : "Send"}
+          {sendButtonLabel({ isRunning, canSubmit, isProviderBlocked, provider })}
         </button>
       </div>
 
@@ -115,4 +153,57 @@ export function AssistantPane({
       ) : null}
     </aside>
   );
+}
+
+function providerStatusLabel(
+  status: ProviderStatus | null | undefined,
+  provider: ProviderId,
+) {
+  if (provider === "lm-studio") {
+    return "Local server";
+  }
+
+  if (!status) {
+    return "Checking...";
+  }
+
+  if (!status.installed) {
+    return "CLI not found";
+  }
+
+  return status.authenticated ? "Connected" : "Sign in needed";
+}
+
+function sendButtonLabel({
+  isRunning,
+  canSubmit,
+  isProviderBlocked,
+  provider,
+}: {
+  isRunning: boolean;
+  canSubmit: boolean;
+  isProviderBlocked: boolean;
+  provider: ProviderId;
+}) {
+  if (isRunning) {
+    return "Working...";
+  }
+
+  if (!canSubmit) {
+    return "Open a file to send";
+  }
+
+  if (isProviderBlocked) {
+    return "Sign in in Settings";
+  }
+
+  if (provider === "anthropic-subscription") {
+    return "Send to Claude";
+  }
+
+  if (provider === "openai-subscription") {
+    return "Send to OpenAI";
+  }
+
+  return "Send to LM Studio";
 }

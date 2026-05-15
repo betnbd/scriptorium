@@ -18,7 +18,7 @@ describe("AssistantPane", () => {
     );
 
     await user.type(screen.getByLabelText("Instruction"), "Make it sharper");
-    await user.click(screen.getByRole("button", { name: "Send" }));
+    await user.click(screen.getByRole("button", { name: "Send to OpenAI" }));
 
     expect(onSubmit).toHaveBeenCalledWith({
       provider: "openai-subscription",
@@ -46,7 +46,7 @@ describe("AssistantPane", () => {
     );
     await user.selectOptions(screen.getByLabelText("Mode"), "diff");
     await user.type(screen.getByLabelText("Instruction"), "Show exact edits");
-    await user.click(screen.getByRole("button", { name: "Send" }));
+    await user.click(screen.getByRole("button", { name: "Send to Claude" }));
 
     expect(onSubmit).toHaveBeenCalledWith({
       provider: "anthropic-subscription",
@@ -88,8 +88,47 @@ describe("AssistantPane", () => {
       />,
     );
 
-    expect(screen.getByText(/OpenAI uses Codex CLI/)).toBeInTheDocument();
-    expect(screen.getAllByText(/Claude Code/).length).toBeGreaterThan(0);
+    expect(screen.getByText("How this works")).toBeInTheDocument();
+    expect(screen.getByText(/current file or selection/)).toBeInTheDocument();
+  });
+
+  it("shows target and provider status", () => {
+    render(
+      <AssistantPane
+        defaultProvider="anthropic-subscription"
+        messages={[]}
+        providerStatuses={{
+          "anthropic-subscription": {
+            provider: "anthropic-subscription",
+            installed: true,
+            authenticated: true,
+            detail: "Connected with claude.ai.",
+          },
+        }}
+        targetLabel="chapter-1.md"
+        onSubmit={vi.fn()}
+        onImport={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText("chapter-1.md")).toBeInTheDocument();
+    expect(screen.getByText("Connected")).toBeInTheDocument();
+  });
+
+  it("disables sending when no file is open", () => {
+    render(
+      <AssistantPane
+        defaultProvider="openai-subscription"
+        canSubmit={false}
+        messages={[]}
+        onSubmit={vi.fn()}
+        onImport={vi.fn()}
+      />,
+    );
+
+    expect(
+      screen.getByRole("button", { name: "Open a file to send" }),
+    ).toBeDisabled();
   });
 
   it("disables sending while a request is running", () => {

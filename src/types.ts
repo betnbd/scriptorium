@@ -33,6 +33,13 @@ export interface AssistantMessage {
   content: string;
 }
 
+export interface ProviderStatus {
+  provider: Extract<ProviderId, "openai-subscription" | "anthropic-subscription">;
+  installed: boolean;
+  authenticated: boolean;
+  detail: string;
+}
+
 export interface AppSettings {
   defaultProvider: ProviderId;
   openaiUrl: string;
