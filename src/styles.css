@@ -78,7 +78,8 @@ select {
 }
 
 .assistant-controls,
-.assistant-import {
+.assistant-import,
+.assistant-history {
   display: flex;
   flex-direction: column;
   gap: 12px;
@@ -126,6 +127,21 @@ select {
   color: #ffffff;
   background: #356cae;
   cursor: pointer;
+}
+
+.assistant-message {
+  border: 1px solid #d9dee7;
+  border-radius: 6px;
+  padding: 10px;
+  background: #ffffff;
+}
+
+.assistant-message pre {
+  margin: 0;
+  white-space: pre-wrap;
+  color: #3a4048;
+  font: inherit;
+  line-height: 1.45;
 }
 
 .file-tree {

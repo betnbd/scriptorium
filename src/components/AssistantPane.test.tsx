@@ -11,6 +11,7 @@ describe("AssistantPane", () => {
     render(
       <AssistantPane
         defaultProvider="openai-subscription"
+        messages={[]}
         onSubmit={onSubmit}
         onImport={vi.fn()}
       />,
@@ -33,6 +34,7 @@ describe("AssistantPane", () => {
     render(
       <AssistantPane
         defaultProvider="openai-subscription"
+        messages={[]}
         onSubmit={onSubmit}
         onImport={vi.fn()}
       />,
@@ -60,6 +62,7 @@ describe("AssistantPane", () => {
     render(
       <AssistantPane
         defaultProvider="lm-studio"
+        messages={[]}
         onSubmit={vi.fn()}
         onImport={onImport}
       />,
@@ -71,6 +74,39 @@ describe("AssistantPane", () => {
     );
     await user.click(screen.getByRole("button", { name: "Import" }));
 
-    expect(onImport).toHaveBeenCalledWith("Use shorter sentences.");
+    expect(onImport).toHaveBeenCalledWith("Use shorter sentences.", "rewrite");
+  });
+
+  it("passes the selected mode when importing a response", async () => {
+    const user = userEvent.setup();
+    const onImport = vi.fn();
+
+    render(
+      <AssistantPane
+        defaultProvider="openai-subscription"
+        messages={[]}
+        onSubmit={vi.fn()}
+        onImport={onImport}
+      />,
+    );
+
+    await user.selectOptions(screen.getByLabelText("Mode"), "suggestions");
+    await user.type(screen.getByLabelText("Import response"), "Raise the stakes.");
+    await user.click(screen.getByRole("button", { name: "Import" }));
+
+    expect(onImport).toHaveBeenCalledWith("Raise the stakes.", "suggestions");
+  });
+
+  it("renders assistant message history", () => {
+    render(
+      <AssistantPane
+        defaultProvider="openai-subscription"
+        messages={[{ role: "assistant", content: "Imported assistant result." }]}
+        onSubmit={vi.fn()}
+        onImport={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText("Imported assistant result.")).toBeInTheDocument();
   });
 });

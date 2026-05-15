@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import App from "./App";
@@ -43,10 +43,17 @@ vi.mock("./components/EditorPane", () => ({
         <h1>{openFile.name}</h1>
         <p>{openFile.relativePath}</p>
         <span>{isDirty ? "Unsaved" : "Saved"}</span>
-        <button type="button" onClick={() => onChange(`${markdown}\nChanged lantern.`)}>
+        <pre aria-label="Current markdown">{markdown}</pre>
+        <button
+          type="button"
+          onClick={() => onChange(`${markdown}\nChanged lantern.`)}
+        >
           Edit Text
         </button>
-        <button type="button" onClick={() => onSelectionChange?.("The house shuddered.")}>
+        <button
+          type="button"
+          onClick={() => onSelectionChange?.("The house shuddered.")}
+        >
           Select Text
         </button>
         <button type="button" onClick={onSave} disabled={!isDirty}>
@@ -102,7 +109,9 @@ describe("App", () => {
     render(<App />);
 
     await user.click(screen.getByRole("button", { name: "Open Folder" }));
-    await user.click(await screen.findByRole("button", { name: "Open chapter-1.md" }));
+    await user.click(
+      await screen.findByRole("button", { name: "Open chapter-1.md" }),
+    );
     await user.click(await screen.findByRole("button", { name: "Edit Text" }));
     await screen.findByText("Unsaved");
     await user.click(screen.getByRole("button", { name: "Open" }));
@@ -130,7 +139,9 @@ describe("App", () => {
     render(<App />);
 
     await user.click(screen.getByRole("button", { name: "Open Folder" }));
-    await user.click(await screen.findByRole("button", { name: "Open chapter-1.md" }));
+    await user.click(
+      await screen.findByRole("button", { name: "Open chapter-1.md" }),
+    );
     await user.click(screen.getByRole("button", { name: "Rename chapter-1.md" }));
     await screen.findByRole("heading", { name: "chapter-one.md" });
     await user.click(screen.getByRole("button", { name: "Edit Text" }));
@@ -164,7 +175,9 @@ describe("App", () => {
     render(<App />);
 
     await user.click(screen.getByRole("button", { name: "Open Folder" }));
-    await user.click(await screen.findByRole("button", { name: "Open chapter-1.md" }));
+    await user.click(
+      await screen.findByRole("button", { name: "Open chapter-1.md" }),
+    );
     await user.click(screen.getByRole("button", { name: "Delete chapter-1.md" }));
 
     expect(tauriApiMock.deleteEntry).toHaveBeenCalledWith("/novel", "chapter-1.md");
@@ -187,7 +200,9 @@ describe("App", () => {
     render(<App />);
 
     await user.click(screen.getByRole("button", { name: "Open Folder" }));
-    await user.click(await screen.findByRole("button", { name: "Open chapter-1.md" }));
+    await user.click(
+      await screen.findByRole("button", { name: "Open chapter-1.md" }),
+    );
     await user.click(screen.getByRole("button", { name: "Select Text" }));
     await user.type(screen.getByLabelText("Instruction"), "Make this more tense");
     await user.click(screen.getByRole("button", { name: "Prepare" }));
@@ -230,6 +245,136 @@ describe("App", () => {
     expect(tauriApiMock.copyText).toHaveBeenCalledWith(
       expect.stringContaining("Changed lantern."),
     );
+  });
+
+  it("imports a rewrite into the editor without saving to disk", async () => {
+    const user = userEvent.setup();
+    const chapter = fileNode("chapter-1.md");
+    tauriApiMock.pickProjectFolder.mockResolvedValueOnce({
+      rootPath: "/novel",
+      tree: [chapter],
+    });
+    mockMarkdownReads({
+      "chapter-1.md": "# Chapter 1\n\nOld text.",
+    });
+
+    render(<App />);
+
+    await user.click(screen.getByRole("button", { name: "Open Folder" }));
+    await user.click(await screen.findByRole("button", { name: "Open chapter-1.md" }));
+    await user.clear(screen.getByLabelText("Import response"));
+    await user.type(
+      screen.getByLabelText("Import response"),
+      "# Chapter 1\n\nNew text.",
+    );
+    await user.click(screen.getByRole("button", { name: "Import" }));
+
+    expect(screen.getByLabelText("Current markdown")).toHaveTextContent(
+      "# Chapter 1 New text.",
+    );
+    expect(screen.getByText("Unsaved")).toBeInTheDocument();
+    expect(screen.getByText("Imported assistant result.")).toBeInTheDocument();
+    expect(tauriApiMock.writeMarkdownFile).not.toHaveBeenCalled();
+  });
+
+  it("imports a unified diff into the editor without saving to disk", async () => {
+    const user = userEvent.setup();
+    const chapter = fileNode("chapter-1.md");
+    tauriApiMock.pickProjectFolder.mockResolvedValueOnce({
+      rootPath: "/novel",
+      tree: [chapter],
+    });
+    mockMarkdownReads({
+      "chapter-1.md": "# Chapter 1\n\nOld text.",
+    });
+
+    render(<App />);
+
+    await user.click(screen.getByRole("button", { name: "Open Folder" }));
+    await user.click(
+      await screen.findByRole("button", { name: "Open chapter-1.md" }),
+    );
+    await user.selectOptions(screen.getByLabelText("Mode"), "diff");
+    await user.type(
+      screen.getByLabelText("Import response"),
+      "```diff\n--- a/chapter-1.md\n+++ b/chapter-1.md\n@@ -1,3 +1,3 @@\n # Chapter 1\n \n-Old text.\n+New text.\n```",
+    );
+    await user.click(screen.getByRole("button", { name: "Import" }));
+
+    expect(screen.getByLabelText("Current markdown")).toHaveTextContent(
+      "# Chapter 1 New text.",
+    );
+    expect(screen.getByText("Unsaved")).toBeInTheDocument();
+    expect(screen.getByText("Imported assistant result.")).toBeInTheDocument();
+    expect(tauriApiMock.writeMarkdownFile).not.toHaveBeenCalled();
+  });
+
+  it("imports suggestions into assistant history without changing the document", async () => {
+    const user = userEvent.setup();
+    const chapter = fileNode("chapter-1.md");
+    tauriApiMock.pickProjectFolder.mockResolvedValueOnce({
+      rootPath: "/novel",
+      tree: [chapter],
+    });
+    mockMarkdownReads({
+      "chapter-1.md": "# Chapter 1\n\nOld text.",
+    });
+
+    render(<App />);
+
+    await user.click(screen.getByRole("button", { name: "Open Folder" }));
+    await user.click(
+      await screen.findByRole("button", { name: "Open chapter-1.md" }),
+    );
+    await user.selectOptions(screen.getByLabelText("Mode"), "suggestions");
+    await user.type(screen.getByLabelText("Import response"), "- Raise the stakes.");
+    await user.click(screen.getByRole("button", { name: "Import" }));
+
+    expect(screen.getByLabelText("Current markdown")).toHaveTextContent(
+      "# Chapter 1 Old text.",
+    );
+    expect(screen.getByText("Saved")).toBeInTheDocument();
+    expect(
+      within(screen.getByLabelText("Assistant history")).getByText(
+        "- Raise the stakes.",
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it("alerts and keeps the document unchanged when an imported diff fails", async () => {
+    const user = userEvent.setup();
+    const chapter = fileNode("chapter-1.md");
+    const alert = vi.spyOn(window, "alert").mockImplementation(() => undefined);
+    tauriApiMock.pickProjectFolder.mockResolvedValueOnce({
+      rootPath: "/novel",
+      tree: [chapter],
+    });
+    mockMarkdownReads({
+      "chapter-1.md": "# Chapter 1\n\nOld text.",
+    });
+
+    render(<App />);
+
+    await user.click(screen.getByRole("button", { name: "Open Folder" }));
+    await user.click(
+      await screen.findByRole("button", { name: "Open chapter-1.md" }),
+    );
+    await user.selectOptions(screen.getByLabelText("Mode"), "diff");
+    await user.type(
+      screen.getByLabelText("Import response"),
+      "```diff\n--- a/chapter-1.md\n+++ b/chapter-1.md\n@@ -1,3 +1,3 @@\n # Chapter 1\n \n-Missing text.\n+New text.\n```",
+    );
+    await user.click(screen.getByRole("button", { name: "Import" }));
+
+    expect(alert).toHaveBeenCalledWith(
+      "Diff could not be applied to the current document.",
+    );
+    expect(screen.getByLabelText("Current markdown")).toHaveTextContent(
+      "# Chapter 1 Old text.",
+    );
+    expect(
+      screen.queryByText("Imported assistant result."),
+    ).not.toBeInTheDocument();
   });
 });
 

@@ -1,6 +1,8 @@
 import { useReducer, useState } from "react";
 import { tauriApi } from "./api/tauri";
+import { applyAssistantResult } from "./assistant/applyResult";
 import { buildAssistantPrompt } from "./assistant/promptBuilder";
+import { parseAssistantResponse } from "./assistant/responseParser";
 import {
   AssistantPane,
   type AssistantRequest,
@@ -10,7 +12,7 @@ import { FileTree } from "./components/FileTree";
 import { buildIndex, selectRelevantContext } from "./context/indexer";
 import { normalizeMarkdownForSave } from "./editor/markdown";
 import { appReducer, initialAppState } from "./state/appReducer";
-import type { FileNode, IndexedDocument } from "./types";
+import type { AssistantMode, FileNode, IndexedDocument } from "./types";
 import "./styles.css";
 
 export default function App() {
@@ -18,6 +20,7 @@ export default function App() {
   const [assistantSelection, setAssistantSelection] = useState<string | null>(
     null,
   );
+  const [assistantMode, setAssistantMode] = useState<AssistantMode>("rewrite");
 
   async function refreshTree(rootPath = state.rootPath) {
     if (!rootPath) {
@@ -239,6 +242,8 @@ export default function App() {
       return;
     }
 
+    setAssistantMode(request.mode);
+
     const targetMarkdown = assistantSelection?.trim()
       ? assistantSelection
       : state.openMarkdown;
@@ -267,15 +272,34 @@ export default function App() {
     }
   }
 
-  function importAssistantResponse(response: string) {
+  function importAssistantResponse(response: string, mode = assistantMode) {
     if (!response.trim()) {
       return;
     }
 
-    dispatch({
-      type: "assistantMessageAdded",
-      message: { role: "assistant", content: response },
-    });
+    try {
+      const parsed = parseAssistantResponse(mode, response);
+      const nextMarkdown = applyAssistantResult(state.openMarkdown, parsed);
+
+      setAssistantMode(mode);
+
+      if (nextMarkdown !== state.openMarkdown) {
+        dispatch({ type: "editorChanged", markdown: nextMarkdown });
+      }
+
+      dispatch({
+        type: "assistantMessageAdded",
+        message: {
+          role: "assistant",
+          content:
+            parsed.kind === "suggestions"
+              ? parsed.suggestions
+              : "Imported assistant result.",
+        },
+      });
+    } catch (error) {
+      window.alert(error instanceof Error ? error.message : String(error));
+    }
   }
 
   return (
@@ -309,6 +333,7 @@ export default function App() {
       />
       <AssistantPane
         defaultProvider={state.settings.defaultProvider}
+        messages={state.assistantMessages}
         onSubmit={(request) => {
           void submitAssistantRequest(request);
         }}

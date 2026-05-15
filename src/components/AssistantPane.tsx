@@ -1,5 +1,5 @@
 import { useState } from "react";
-import type { AssistantMode, ProviderId } from "../types";
+import type { AssistantMessage, AssistantMode, ProviderId } from "../types";
 
 export interface AssistantRequest {
   provider: ProviderId;
@@ -9,12 +9,14 @@ export interface AssistantRequest {
 
 interface AssistantPaneProps {
   defaultProvider: ProviderId;
+  messages: AssistantMessage[];
   onSubmit: (request: AssistantRequest) => void;
-  onImport: (response: string) => void;
+  onImport: (response: string, mode: AssistantMode) => void;
 }
 
 export function AssistantPane({
   defaultProvider,
+  messages,
   onSubmit,
   onImport,
 }: AssistantPaneProps) {
@@ -81,10 +83,23 @@ export function AssistantPane({
           />
         </label>
 
-        <button type="button" onClick={() => onImport(importText)}>
+        <button type="button" onClick={() => onImport(importText, mode)}>
           Import
         </button>
       </div>
+
+      {messages.length > 0 ? (
+        <div className="assistant-history" aria-label="Assistant history">
+          {messages.map((message, index) => (
+            <article
+              className="assistant-message"
+              key={`${message.role}-${index}`}
+            >
+              <pre>{message.content}</pre>
+            </article>
+          ))}
+        </div>
+      ) : null}
     </aside>
   );
 }
