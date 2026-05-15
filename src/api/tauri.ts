@@ -1,0 +1,75 @@
+import { invoke } from "@tauri-apps/api/core";
+import { writeText } from "@tauri-apps/plugin-clipboard-manager";
+import { open } from "@tauri-apps/plugin-dialog";
+import { open as openUrl } from "@tauri-apps/plugin-shell";
+import type { FileNode, OpenFile } from "../types";
+
+type Invoke = <T>(command: string, args?: Record<string, unknown>) => Promise<T>;
+type OpenDialog = (options: {
+  directory: true;
+  multiple: false;
+}) => Promise<string | string[] | null>;
+type WriteText = (text: string) => Promise<void>;
+type OpenUrl = (url: string) => Promise<void>;
+
+export interface TauriApiDeps {
+  invoke: Invoke;
+  open: OpenDialog;
+  writeText: WriteText;
+  openUrl: OpenUrl;
+}
+
+export interface TauriApi {
+  pickProjectFolder(): Promise<{ rootPath: string; tree: FileNode[] } | null>;
+  readMarkdownFile(rootPath: string, filePath: string): Promise<OpenFile>;
+  writeMarkdownFile(
+    rootPath: string,
+    filePath: string,
+    markdown: string,
+  ): Promise<void>;
+  copyText(text: string): Promise<void>;
+  openExternal(url: string): Promise<void>;
+}
+
+export function createTauriApi(deps: TauriApiDeps): TauriApi {
+  return {
+    async pickProjectFolder() {
+      const selected = await deps.open({ directory: true, multiple: false });
+
+      if (typeof selected !== "string") {
+        return null;
+      }
+
+      const tree = await deps.invoke<FileNode[]>("read_project_tree", {
+        rootPath: selected,
+      });
+
+      return { rootPath: selected, tree };
+    },
+
+    readMarkdownFile(rootPath, filePath) {
+      return deps.invoke<OpenFile>("read_markdown_file", { rootPath, filePath });
+    },
+
+    writeMarkdownFile(rootPath, filePath, markdown) {
+      return deps.invoke<void>("write_markdown_file", {
+        request: { rootPath, filePath, markdown },
+      });
+    },
+
+    copyText(text) {
+      return deps.writeText(text);
+    },
+
+    openExternal(url) {
+      return deps.openUrl(url);
+    },
+  };
+}
+
+export const tauriApi = createTauriApi({
+  invoke,
+  open,
+  writeText,
+  openUrl,
+});
