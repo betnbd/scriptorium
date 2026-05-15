@@ -25,6 +25,7 @@ npm run tauri:dev
 npm run test:unit
 npm run tauri:test
 npm run build
+npm run tauri:build
 npm run test:e2e
 ```
 
