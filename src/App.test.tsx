@@ -373,10 +373,9 @@ describe("App", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("alerts when LM Studio requests fail", async () => {
+  it("shows an error banner when LM Studio requests fail", async () => {
     const user = userEvent.setup();
     const chapter = fileNode("chapter-1.md");
-    const alert = vi.spyOn(window, "alert").mockImplementation(() => undefined);
     mockProjectFolder([chapter]);
     mockMarkdownReads({
       "chapter-1.md": "# Chapter 1\n\nOld text.",
@@ -394,9 +393,38 @@ describe("App", () => {
     await user.selectOptions(screen.getByLabelText("Provider"), "lm-studio");
     await user.click(screen.getByRole("button", { name: "Prepare" }));
 
-    expect(alert).toHaveBeenCalledWith("LM Studio is unavailable.");
+    expect(await screen.findByText("LM Studio is unavailable.")).toBeInTheDocument();
     expect(screen.getByLabelText("Current markdown")).toHaveTextContent(
       "# Chapter 1 Old text.",
+    );
+    await user.click(screen.getByRole("button", { name: "Dismiss" }));
+    expect(screen.queryByText("LM Studio is unavailable.")).not.toBeInTheDocument();
+  });
+
+  it("shows an error banner when saving fails and keeps unsaved edits", async () => {
+    const user = userEvent.setup();
+    const chapter = fileNode("chapter-1.md");
+    mockProjectFolder([chapter]);
+    mockMarkdownReads({
+      "chapter-1.md": "# Chapter 1\n\nOld text.",
+    });
+    tauriApiMock.writeMarkdownFile.mockRejectedValueOnce(
+      new Error("Disk write failed."),
+    );
+
+    render(<App />);
+
+    await user.click(screen.getByRole("button", { name: "Open Folder" }));
+    await user.click(
+      await screen.findByRole("button", { name: "Open chapter-1.md" }),
+    );
+    await user.click(screen.getByRole("button", { name: "Edit Text" }));
+    await user.click(screen.getByRole("button", { name: "Save" }));
+
+    expect(await screen.findByText("Disk write failed.")).toBeInTheDocument();
+    expect(screen.getByText("Unsaved")).toBeInTheDocument();
+    expect(screen.getByLabelText("Current markdown")).toHaveTextContent(
+      "Changed lantern.",
     );
   });
 
@@ -510,10 +538,9 @@ describe("App", () => {
     ).toBeInTheDocument();
   });
 
-  it("alerts and keeps the document unchanged when an imported diff fails", async () => {
+  it("shows an error banner and keeps the document unchanged when an imported diff fails", async () => {
     const user = userEvent.setup();
     const chapter = fileNode("chapter-1.md");
-    const alert = vi.spyOn(window, "alert").mockImplementation(() => undefined);
     mockProjectFolder([chapter]);
     mockMarkdownReads({
       "chapter-1.md": "# Chapter 1\n\nOld text.",
@@ -532,9 +559,9 @@ describe("App", () => {
     );
     await user.click(screen.getByRole("button", { name: "Import" }));
 
-    expect(alert).toHaveBeenCalledWith(
-      "Diff could not be applied to the current document.",
-    );
+    expect(
+      await screen.findByText("Diff could not be applied to the current document."),
+    ).toBeInTheDocument();
     expect(screen.getByLabelText("Current markdown")).toHaveTextContent(
       "# Chapter 1 Old text.",
     );

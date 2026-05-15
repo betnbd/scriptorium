@@ -16,6 +16,7 @@ export interface AppState {
   isDirty: boolean;
   assistantMessages: AssistantMessage[];
   settings: AppSettings;
+  errorMessage: string | null;
 }
 
 export type AppAction =
@@ -37,7 +38,9 @@ export type AppAction =
     }
   | { type: "indexedDocumentUpdated"; document: IndexedDocument }
   | { type: "assistantMessageAdded"; message: AssistantMessage }
-  | { type: "settingsLoaded"; settings: AppSettings };
+  | { type: "settingsLoaded"; settings: AppSettings }
+  | { type: "errorShown"; message: string }
+  | { type: "errorCleared" };
 
 export const defaultSettings: AppSettings = {
   defaultProvider: "openai-subscription",
@@ -63,6 +66,7 @@ export const initialAppState: AppState = {
   isDirty: false,
   assistantMessages: [],
   settings: defaultSettings,
+  errorMessage: null,
 };
 
 export function appReducer(state: AppState, action: AppAction): AppState {
@@ -140,6 +144,16 @@ export function appReducer(state: AppState, action: AppAction): AppState {
       return {
         ...state,
         settings: action.settings,
+      };
+    case "errorShown":
+      return {
+        ...state,
+        errorMessage: action.message,
+      };
+    case "errorCleared":
+      return {
+        ...state,
+        errorMessage: null,
       };
   }
 }

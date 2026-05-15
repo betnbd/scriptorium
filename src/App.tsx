@@ -14,6 +14,7 @@ import { SettingsDialog } from "./components/SettingsDialog";
 import { buildIndex, selectRelevantContext } from "./context/indexer";
 import { normalizeMarkdownForSave } from "./editor/markdown";
 import { appReducer, initialAppState } from "./state/appReducer";
+import { shouldSwitchFile } from "./state/guards";
 import type {
   AppSettings,
   AssistantMode,
@@ -56,6 +57,9 @@ export default function App() {
       })
       .catch((error) => {
         console.error(error);
+        if (isMounted) {
+          dispatch({ type: "errorShown", message: messageFromError(error) });
+        }
       });
 
     return () => {
@@ -85,41 +89,48 @@ export default function App() {
   }
 
   async function openFolder() {
-    if (!confirmDiscardChanges()) {
+    if (!shouldSwitchFile(state.isDirty, confirmDiscardChanges)) {
       return;
     }
 
-    const project = await tauriApi.pickProjectFolder();
+    try {
+      const project = await tauriApi.pickProjectFolder();
 
-    if (!project) {
-      return;
-    }
+      if (!project) {
+        return;
+      }
 
-    const projectSettings = await loadProjectEnvSettings(project.rootPath, state.settings);
-    const effectiveSettings = projectSettings
-      ? hasLocalSettings
-        ? { ...projectSettings, ...state.settings }
-        : { ...state.settings, ...projectSettings }
-      : state.settings;
-    const tree = await tauriApi.readProjectTree(
-      project.rootPath,
-      effectiveSettings,
-    );
-    const indexedDocuments = await buildMarkdownIndex(
-      project.rootPath,
-      tree,
-      effectiveSettings,
-    );
+      const projectSettings = await loadProjectEnvSettings(
+        project.rootPath,
+        state.settings,
+      );
+      const effectiveSettings = projectSettings
+        ? hasLocalSettings
+          ? { ...projectSettings, ...state.settings }
+          : { ...state.settings, ...projectSettings }
+        : state.settings;
+      const tree = await tauriApi.readProjectTree(
+        project.rootPath,
+        effectiveSettings,
+      );
+      const indexedDocuments = await buildMarkdownIndex(
+        project.rootPath,
+        tree,
+        effectiveSettings,
+      );
 
-    setAssistantSelection(null);
-    dispatch({
-      type: "projectOpened",
-      rootPath: project.rootPath,
-      tree,
-      indexedDocuments,
-    });
-    if (projectSettings) {
-      dispatch({ type: "settingsLoaded", settings: effectiveSettings });
+      setAssistantSelection(null);
+      dispatch({
+        type: "projectOpened",
+        rootPath: project.rootPath,
+        tree,
+        indexedDocuments,
+      });
+      if (projectSettings) {
+        dispatch({ type: "settingsLoaded", settings: effectiveSettings });
+      }
+    } catch (error) {
+      showError(error);
     }
   }
 
@@ -128,18 +139,22 @@ export default function App() {
       return;
     }
 
-    if (!confirmDiscardChanges()) {
+    if (!shouldSwitchFile(state.isDirty, confirmDiscardChanges)) {
       return;
     }
 
-    const opened = await tauriApi.readMarkdownFile(state.rootPath, path);
+    try {
+      const opened = await tauriApi.readMarkdownFile(state.rootPath, path);
 
-    setAssistantSelection(null);
-    dispatch({
-      type: "fileOpened",
-      file: opened.file,
-      markdown: opened.markdown,
-    });
+      setAssistantSelection(null);
+      dispatch({
+        type: "fileOpened",
+        file: opened.file,
+        markdown: opened.markdown,
+      });
+    } catch (error) {
+      showError(error);
+    }
   }
 
   async function saveFile() {
@@ -150,19 +165,23 @@ export default function App() {
     const markdown = normalizeMarkdownForSave(state.openMarkdown);
     const openFile = state.openFile;
 
-    await tauriApi.writeMarkdownFile(
-      state.rootPath,
-      openFile.relativePath,
-      markdown,
-    );
+    try {
+      await tauriApi.writeMarkdownFile(
+        state.rootPath,
+        openFile.relativePath,
+        markdown,
+      );
 
-    dispatch({ type: "fileSaved", markdown });
+      dispatch({ type: "fileSaved", markdown });
 
-    if (openFile.isMarkdown) {
-      dispatch({
-        type: "indexedDocumentUpdated",
-        document: indexMarkdownFile(openFile, markdown),
-      });
+      if (openFile.isMarkdown) {
+        dispatch({
+          type: "indexedDocumentUpdated",
+          document: indexMarkdownFile(openFile, markdown),
+        });
+      }
+    } catch (error) {
+      showError(error);
     }
   }
 
@@ -182,7 +201,7 @@ export default function App() {
         dispatch({ type: "treeUpdated", tree, indexedDocuments });
       }
     } catch (error) {
-      window.alert(error instanceof Error ? error.message : String(error));
+      showError(error);
     }
   }
 
@@ -197,8 +216,15 @@ export default function App() {
       return;
     }
 
-    await tauriApi.createFile(state.rootPath, joinRelativePath(parentPath, name));
-    await refreshTree();
+    try {
+      await tauriApi.createFile(
+        state.rootPath,
+        joinRelativePath(parentPath, name),
+      );
+      await refreshTree();
+    } catch (error) {
+      showError(error);
+    }
   }
 
   async function createFolder(parentPath: string) {
@@ -212,11 +238,15 @@ export default function App() {
       return;
     }
 
-    await tauriApi.createFolder(
-      state.rootPath,
-      joinRelativePath(parentPath, name),
-    );
-    await refreshTree();
+    try {
+      await tauriApi.createFolder(
+        state.rootPath,
+        joinRelativePath(parentPath, name),
+      );
+      await refreshTree();
+    } catch (error) {
+      showError(error);
+    }
   }
 
   async function renameEntry(path: string) {
@@ -233,10 +263,14 @@ export default function App() {
     const trimmedName = newName.trim();
     const nextPath = renameRelativePath(path, trimmedName);
 
-    await tauriApi.renameEntry(state.rootPath, path, trimmedName);
+    try {
+      await tauriApi.renameEntry(state.rootPath, path, trimmedName);
 
-    const tree = await refreshTree();
-    syncOpenFileAfterPathChange(path, nextPath, tree);
+      const tree = await refreshTree();
+      syncOpenFileAfterPathChange(path, nextPath, tree);
+    } catch (error) {
+      showError(error);
+    }
   }
 
   async function deleteEntry(path: string) {
@@ -254,12 +288,16 @@ export default function App() {
       return;
     }
 
-    await tauriApi.deleteEntry(state.rootPath, path);
-    await refreshTree();
+    try {
+      await tauriApi.deleteEntry(state.rootPath, path);
+      await refreshTree();
 
-    if (isOpenEntry) {
-      setAssistantSelection(null);
-      dispatch({ type: "fileClosed" });
+      if (isOpenEntry) {
+        setAssistantSelection(null);
+        dispatch({ type: "fileClosed" });
+      }
+    } catch (error) {
+      showError(error);
     }
   }
 
@@ -276,14 +314,30 @@ export default function App() {
 
     const nextPath = trimRelativePath(newPath);
 
-    await tauriApi.moveEntry(state.rootPath, path, nextPath);
+    try {
+      await tauriApi.moveEntry(state.rootPath, path, nextPath);
 
-    const tree = await refreshTree();
-    syncOpenFileAfterPathChange(path, nextPath, tree);
+      const tree = await refreshTree();
+      syncOpenFileAfterPathChange(path, nextPath, tree);
+    } catch (error) {
+      showError(error);
+    }
   }
 
   function confirmDiscardChanges() {
-    return !state.isDirty || window.confirm("Discard unsaved changes?");
+    return window.confirm("Discard unsaved changes?");
+  }
+
+  async function reindexProject(rootPath = state.rootPath) {
+    try {
+      await refreshTree(rootPath);
+    } catch (error) {
+      showError(error);
+    }
+  }
+
+  function showError(error: unknown) {
+    dispatch({ type: "errorShown", message: messageFromError(error) });
   }
 
   function pathAffectsOpenFile(path: string) {
@@ -321,31 +375,31 @@ export default function App() {
       return;
     }
 
-    setAssistantMode(request.mode);
+    try {
+      setAssistantMode(request.mode);
 
-    const submittedFilePath = state.openFile.relativePath;
-    const submittedMarkdown = state.openMarkdown;
-    const targetMarkdown = assistantSelection?.trim()
-      ? assistantSelection
-      : state.openMarkdown;
-    const context = selectRelevantContext({
-      documents: state.indexedDocuments,
-      targetPath: state.openFile.path,
-      instruction: `${request.instruction}\n${targetMarkdown}`,
-      limit: 4,
-    });
-    const prompt = buildAssistantPrompt({
-      mode: request.mode,
-      instruction: request.instruction,
-      targetLabel: assistantSelection?.trim()
-        ? `${state.openFile.relativePath} (current selection)`
-        : state.openFile.relativePath,
-      targetMarkdown,
-      context,
-    });
+      const submittedFilePath = state.openFile.relativePath;
+      const submittedMarkdown = state.openMarkdown;
+      const targetMarkdown = assistantSelection?.trim()
+        ? assistantSelection
+        : state.openMarkdown;
+      const context = selectRelevantContext({
+        documents: state.indexedDocuments,
+        targetPath: state.openFile.path,
+        instruction: `${request.instruction}\n${targetMarkdown}`,
+        limit: 4,
+      });
+      const prompt = buildAssistantPrompt({
+        mode: request.mode,
+        instruction: request.instruction,
+        targetLabel: assistantSelection?.trim()
+          ? `${state.openFile.relativePath} (current selection)`
+          : state.openFile.relativePath,
+        targetMarkdown,
+        context,
+      });
 
-    if (request.provider === "lm-studio") {
-      try {
+      if (request.provider === "lm-studio") {
         const response = await tauriApi.sendLmStudioRequest(
           state.settings.lmStudioBaseUrl,
           state.settings.lmStudioModel,
@@ -358,18 +412,18 @@ export default function App() {
           submittedFilePath,
           submittedMarkdown,
         );
-      } catch (error) {
-        window.alert(error instanceof Error ? error.message : String(error));
+        return;
       }
-      return;
-    }
 
-    await tauriApi.copyText(prompt);
+      await tauriApi.copyText(prompt);
 
-    if (request.provider === "openai-subscription") {
-      await tauriApi.openExternal(state.settings.openaiUrl);
-    } else if (request.provider === "anthropic-subscription") {
-      await tauriApi.openExternal(state.settings.anthropicUrl);
+      if (request.provider === "openai-subscription") {
+        await tauriApi.openExternal(state.settings.openaiUrl);
+      } else if (request.provider === "anthropic-subscription") {
+        await tauriApi.openExternal(state.settings.anthropicUrl);
+      }
+    } catch (error) {
+      showError(error);
     }
   }
 
@@ -391,7 +445,7 @@ export default function App() {
       expectedMarkdown !== undefined &&
       liveEditorRef.current.markdown !== expectedMarkdown
     ) {
-      window.alert("The open file changed before the LM Studio response returned.");
+      showError("The open file changed before the LM Studio response returned.");
       return;
     }
 
@@ -420,19 +474,30 @@ export default function App() {
         },
       });
     } catch (error) {
-      window.alert(error instanceof Error ? error.message : String(error));
+      showError(error);
     }
   }
 
   return (
     <main className="app-shell" style={editorSettingsStyle}>
+      {state.errorMessage ? (
+        <div className="error-banner" role="alert">
+          <span>{state.errorMessage}</span>
+          <button
+            type="button"
+            onClick={() => dispatch({ type: "errorCleared" })}
+          >
+            Dismiss
+          </button>
+        </div>
+      ) : null}
       <aside className="file-pane">
         <header className="app-brand">
           <h1>DraftAgent</h1>
           <button type="button" onClick={() => setIsSettingsOpen(true)}>
             Settings
           </button>
-          <button type="button" onClick={() => void refreshTree()}>
+          <button type="button" onClick={() => void reindexProject()}>
             Reindex
           </button>
         </header>
@@ -473,11 +538,15 @@ export default function App() {
           settings={state.settings}
           onSave={saveSettings}
           onClose={() => setIsSettingsOpen(false)}
-          onReindex={() => void refreshTree()}
+          onReindex={() => void reindexProject()}
         />
       ) : null}
     </main>
   );
+}
+
+function messageFromError(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
 }
 
 function joinRelativePath(parentPath: string, childPath: string): string {

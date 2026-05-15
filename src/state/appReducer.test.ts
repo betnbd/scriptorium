@@ -97,4 +97,14 @@ describe("appReducer", () => {
     expect(state.indexedDocuments).toHaveLength(1);
     expect(state.indexedDocuments[0]?.chunks).toEqual(["Changed lantern."]);
   });
+
+  it("stores and clears app-level errors", () => {
+    const withError = appReducer(initialAppState, {
+      type: "errorShown",
+      message: "Could not save.",
+    });
+
+    expect(withError.errorMessage).toBe("Could not save.");
+    expect(appReducer(withError, { type: "errorCleared" }).errorMessage).toBeNull();
+  });
 });

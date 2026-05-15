@@ -547,3 +547,36 @@ select {
   color: #ffffff;
   background: #356cae;
 }
+
+.error-banner {
+  position: fixed;
+  top: 12px;
+  left: 50%;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  max-width: min(720px, calc(100vw - 24px));
+  padding: 10px 12px;
+  border: 1px solid #e2a8a8;
+  border-radius: 6px;
+  color: #6f1d1d;
+  background: #fff4f4;
+  box-shadow: 0 6px 20px rgba(31, 35, 40, 0.12);
+  transform: translateX(-50%);
+}
+
+.error-banner span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.error-banner button {
+  min-height: 30px;
+  border: 1px solid #d28f8f;
+  border-radius: 6px;
+  padding: 5px 9px;
+  color: #6f1d1d;
+  background: #ffffff;
+  cursor: pointer;
+}
