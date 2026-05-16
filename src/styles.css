@@ -1121,6 +1121,21 @@ select {
   padding: 24px 0 72px;
 }
 
+.large-visual-preview {
+  max-width: var(--editor-line-width, 760px);
+  min-height: calc(100vh - 170px);
+  margin: 0 auto;
+  padding: 24px 0 72px;
+  outline: 2px solid transparent;
+  outline-offset: 8px;
+  color: #2b2b2b;
+  font-family: var(--editor-prose-font-family);
+  font-size: var(--editor-font-size, 18px);
+  line-height: 1.72;
+  overflow-wrap: anywhere;
+  user-select: text;
+}
+
 .manuscript-editor .tiptap {
   min-height: calc(100vh - 150px);
   border-radius: 6px;
@@ -1136,6 +1151,13 @@ select {
   outline-color: #4f7db8;
 }
 
+.large-visual-preview:focus-visible {
+  outline-color: #4f7db8;
+}
+
+.large-visual-preview h1,
+.large-visual-preview h2,
+.large-visual-preview h3,
 .manuscript-editor .tiptap h1,
 .manuscript-editor .tiptap h2,
 .manuscript-editor .tiptap h3 {
@@ -1145,16 +1167,38 @@ select {
   line-height: 1.25;
 }
 
+.large-visual-preview h1,
 .manuscript-editor .tiptap h1 {
   font-size: 30px;
 }
 
+.large-visual-preview h2,
 .manuscript-editor .tiptap h2 {
   font-size: 24px;
 }
 
+.large-visual-preview h3,
 .manuscript-editor .tiptap h3 {
   font-size: 20px;
+}
+
+.large-visual-preview p {
+  margin: 0 0 1em;
+}
+
+.large-visual-preview blockquote {
+  margin: 1.2em 0;
+  border-left: 3px solid #d0d0d0;
+  padding-left: 18px;
+  color: #555555;
+  font-style: italic;
+}
+
+.large-visual-preview hr {
+  width: 100%;
+  margin: 2.2em 0;
+  border: 0;
+  border-top: 1px solid #d0d0d0;
 }
 
 .manuscript-editor .tiptap p {
@@ -1791,7 +1835,8 @@ select {
 }
 
 [data-theme] .source-markdown-editor,
-[data-theme] .manuscript-editor .tiptap {
+[data-theme] .manuscript-editor .tiptap,
+[data-theme] .large-visual-preview {
   font-family: var(--editor-prose-font-family);
 }
 
@@ -1800,8 +1845,25 @@ select {
 }
 
 [data-theme] .manuscript-editor .tiptap:focus-visible,
-[data-theme] .source-markdown-editor:focus-visible {
+[data-theme] .source-markdown-editor:focus-visible,
+[data-theme] .large-visual-preview:focus-visible {
   outline-color: var(--accent);
+}
+
+[data-theme] .large-visual-preview,
+[data-theme] .large-visual-preview h1,
+[data-theme] .large-visual-preview h2,
+[data-theme] .large-visual-preview h3 {
+  color: var(--text);
+}
+
+[data-theme] .large-visual-preview blockquote {
+  border-left-color: var(--border-strong);
+  color: var(--text-muted);
+}
+
+[data-theme] .large-visual-preview hr {
+  border-top-color: var(--border-strong);
 }
 
 [data-theme] .settings-backdrop {

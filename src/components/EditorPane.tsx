@@ -313,13 +313,91 @@ const SourceMarkdownEditor = forwardRef<
   );
 });
 
-const LargeMarkdownEditor = forwardRef<EditorPaneHandle, EditorPaneProps & {
-  openFile: NonNullable<EditorPaneProps["openFile"]>;
-}>(function LargeMarkdownEditor(props, ref) {
+const LargeMarkdownEditor = forwardRef<
+  EditorPaneHandle,
+  EditorPaneProps & {
+    openFile: NonNullable<EditorPaneProps["openFile"]>;
+  }
+>(function LargeMarkdownEditor(props, ref) {
+  if (props.mode === "markdown") {
+    return (
+      <SourceMarkdownEditor ref={ref} {...props}>
+        <span className="status-large">Large editable source</span>
+      </SourceMarkdownEditor>
+    );
+  }
+
+  return <LargeVisualPreview ref={ref} {...props} />;
+});
+
+const LargeVisualPreview = forwardRef<
+  EditorPaneHandle,
+  EditorPaneProps & {
+    openFile: NonNullable<EditorPaneProps["openFile"]>;
+  }
+>(function LargeVisualPreview(
+  {
+    openFile,
+    markdown,
+    mode,
+    isDirty,
+    onSave,
+    onModeChange,
+    onSelectionChange,
+  },
+  ref,
+) {
+  const previewRef = useRef<HTMLDivElement | null>(null);
+
+  useImperativeHandle(
+    ref,
+    () => ({
+      runCommand(command) {
+        if (command === "selectAll") {
+          const preview = previewRef.current;
+          if (!preview) {
+            return;
+          }
+
+          const range = document.createRange();
+          range.selectNodeContents(preview);
+          const selection = window.getSelection();
+          selection?.removeAllRanges();
+          selection?.addRange(range);
+        }
+      },
+    }),
+    [],
+  );
+
+  function updateSelection() {
+    const selectedText = window.getSelection()?.toString().trim() ?? "";
+    onSelectionChange?.(selectedText || null);
+  }
+
   return (
-    <SourceMarkdownEditor ref={ref} {...props}>
-      <span className="status-large">Large file mode</span>
-    </SourceMarkdownEditor>
+    <section className="editor-pane">
+      <EditorHeader
+        markdown={markdown}
+        mode={mode}
+        openFile={openFile}
+        isDirty={isDirty}
+        onSave={onSave}
+        onModeChange={onModeChange}
+      >
+        <span className="status-large">Large visual preview</span>
+      </EditorHeader>
+      <div
+        aria-label="Large file visual preview"
+        className="large-visual-preview"
+        onKeyUp={updateSelection}
+        onPointerUp={updateSelection}
+        ref={previewRef}
+        tabIndex={0}
+      >
+        {renderLargeMarkdownPreview(markdown)}
+      </div>
+    </section>
   );
 });
 
@@ -394,6 +472,54 @@ function countWords(markdown: string): number {
 
 function formatWordCount(count: number): string {
   return count === 1 ? "1 word" : `${count.toLocaleString()} words`;
+}
+
+function renderLargeMarkdownPreview(markdown: string): ReactNode[] {
+  return markdown
+    .split(/\n{2,}/)
+    .map((block, index) => renderLargeMarkdownBlock(block, index))
+    .filter((block): block is ReactNode => block !== null);
+}
+
+function renderLargeMarkdownBlock(block: string, index: number): ReactNode | null {
+  const trimmed = block.trim();
+  if (!trimmed) {
+    return null;
+  }
+
+  const heading = /^(#{1,6})\s+(.+)$/.exec(trimmed);
+  if (heading) {
+    const level = Math.min(heading[1].length, 3);
+    const Tag = `h${level}` as "h1" | "h2" | "h3";
+
+    return <Tag key={index}>{cleanInlineMarkdown(heading[2])}</Tag>;
+  }
+
+  if (/^[-*_]{3,}$/.test(trimmed)) {
+    return <hr key={index} />;
+  }
+
+  if (trimmed.startsWith(">")) {
+    return (
+      <blockquote key={index}>
+        {cleanInlineMarkdown(trimmed.replace(/^>\s?/gm, ""))}
+      </blockquote>
+    );
+  }
+
+  return <p key={index}>{cleanInlineMarkdown(trimmed.replace(/\n/g, " "))}</p>;
+}
+
+function cleanInlineMarkdown(text: string): string {
+  return text
+    .replace(/!\[([^\]]*)\]\([^)]+\)/g, "$1")
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1")
+    .replace(/`([^`]+)`/g, "$1")
+    .replace(/\*\*([^*]+)\*\*/g, "$1")
+    .replace(/__([^_]+)__/g, "$1")
+    .replace(/\*([^*]+)\*/g, "$1")
+    .replace(/_([^_]+)_/g, "$1")
+    .replace(/~~([^~]+)~~/g, "$1");
 }
 
 function runRichEditorCommand(

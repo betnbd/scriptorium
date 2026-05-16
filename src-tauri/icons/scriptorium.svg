@@ -1,25 +1,30 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Scriptorium icon">
   <defs>
-    <linearGradient id="bg" x1="84" y1="48" x2="430" y2="464" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#334d5f"/>
-      <stop offset="1" stop-color="#17252f"/>
+    <linearGradient id="paper" x1="106" y1="80" x2="406" y2="432" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#fff7dc"/>
+      <stop offset="1" stop-color="#d9c59a"/>
     </linearGradient>
-    <linearGradient id="page" x1="122" y1="134" x2="384" y2="394" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#fff9e8"/>
-      <stop offset="1" stop-color="#eadfc6"/>
+    <linearGradient id="ink" x1="128" y1="110" x2="394" y2="406" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#293842"/>
+      <stop offset="1" stop-color="#11191f"/>
     </linearGradient>
-    <linearGradient id="quill" x1="178" y1="356" x2="408" y2="118" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#8fc5bd"/>
-      <stop offset="1" stop-color="#d7b46a"/>
+    <linearGradient id="accent" x1="140" y1="390" x2="376" y2="126" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#79c7c7"/>
+      <stop offset=".52" stop-color="#7aa0d8"/>
+      <stop offset="1" stop-color="#e4b85f"/>
     </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%" color-interpolation-filters="sRGB">
+      <feDropShadow dx="0" dy="18" stdDeviation="22" flood-color="#000000" flood-opacity=".28"/>
+    </filter>
   </defs>
-  <rect width="512" height="512" rx="112" fill="url(#bg)"/>
-  <path d="M124 160c0-22 18-40 40-40h78c23 0 43 10 57 27 14-17 34-27 57-27h32c22 0 40 18 40 40v197c0 13-11 22-24 20l-58-8c-24-3-47 3-66 18l-18 14c-8 6-18 6-26 0l-18-14c-19-15-42-21-66-18l-58 8c-13 2-24-7-24-20V160Z" fill="#10202a" opacity=".36"/>
-  <path d="M116 146c0-22 18-40 40-40h82c23 0 44 11 58 29v238c-15-18-37-29-62-29h-78c-22 0-40-18-40-40V146Z" fill="url(#page)"/>
-  <path d="M296 135c14-18 35-29 58-29h34c22 0 40 18 40 40v158c0 22-18 40-40 40h-38c-22 0-41 8-56 22l2-231Z" fill="url(#page)"/>
-  <path d="M152 170h94M152 214h94M152 258h73M341 170h53M341 214h53" stroke="#826f55" stroke-width="14" stroke-linecap="round" opacity=".75"/>
-  <path d="M292 324c-5-34 2-69 21-98 25-39 67-64 115-65-2 45-20 88-53 119-25 24-55 39-83 44Z" fill="url(#quill)"/>
-  <path d="M286 333c25-55 68-104 128-146" fill="none" stroke="#ffffff" stroke-width="13" stroke-linecap="round" opacity=".76"/>
-  <path d="M222 366l58-52 22 22-52 58c-7 8-20 8-28 0-8-8-8-21 0-28Z" fill="#d7b46a"/>
-  <path d="M250 394l-42 18 14-46 28 28Z" fill="#f4e8c9"/>
+  <rect width="512" height="512" rx="116" fill="#202a31"/>
+  <path d="M112 148c0-24 20-44 44-44h200c24 0 44 20 44 44v216c0 24-20 44-44 44H156c-24 0-44-20-44-44V148Z" fill="#0f171d" opacity=".55" filter="url(#shadow)"/>
+  <path d="M128 132c0-22 18-40 40-40h176c22 0 40 18 40 40v236c0 22-18 40-40 40H168c-22 0-40-18-40-40V132Z" fill="url(#paper)"/>
+  <path d="M166 154h180M166 198h142M166 242h180M166 286h118M166 330h156" stroke="#7d6b4f" stroke-width="14" stroke-linecap="round" opacity=".62"/>
+  <path d="M236 378c32-90 79-159 142-207" fill="none" stroke="url(#ink)" stroke-width="32" stroke-linecap="round"/>
+  <path d="M236 378c32-90 79-159 142-207" fill="none" stroke="url(#accent)" stroke-width="18" stroke-linecap="round"/>
+  <path d="M332 166c22-28 56-44 94-44-3 39-19 73-48 95-23 18-50 27-77 26 3-29 13-55 31-77Z" fill="url(#accent)"/>
+  <path d="M291 357l-54 54c-8 8-22 8-30 0s-8-22 0-30l54-54 30 30Z" fill="#202a31"/>
+  <path d="M237 411l-48 17 18-47 30 30Z" fill="#fff1c7"/>
+  <circle cx="256" cy="256" r="178" fill="none" stroke="#f7e7bd" stroke-width="10" opacity=".18"/>
 </svg>

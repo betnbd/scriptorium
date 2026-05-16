@@ -9,21 +9,21 @@ describe("pane layout", () => {
   it("resizes the file pane in pointer direction", () => {
     expect(
       resizePaneLayout({
-        layout: defaultPaneLayout,
+        layout: { ...defaultPaneLayout, filePaneWidth: 300 },
         pane: "file",
         deltaX: 34,
       }).filePaneWidth,
-    ).toBe(defaultPaneLayout.filePaneWidth + 34);
+    ).toBe(334);
   });
 
   it("resizes the assistant pane opposite the pointer direction", () => {
     expect(
       resizePaneLayout({
-        layout: defaultPaneLayout,
+        layout: { ...defaultPaneLayout, assistantPaneWidth: 400 },
         pane: "assistant",
         deltaX: -40,
       }).assistantPaneWidth,
-    ).toBe(defaultPaneLayout.assistantPaneWidth + 40);
+    ).toBe(440);
   });
 
   it("keeps panes inside usable limits", () => {

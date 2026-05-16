@@ -74,11 +74,11 @@ test("edge 5: file pane resizer changes the sidebar width", async ({ page }) => 
 
   await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
   await page.mouse.down();
-  await page.mouse.move(box.x + 50, box.y + box.height / 2);
+  await page.mouse.move(box.x - 160, box.y + box.height / 2);
   await page.mouse.up();
 
   const after = await filePane.boundingBox();
-  expect(after?.width).toBeGreaterThan(before.width + 20);
+  expect(after?.width).toBeLessThan(before.width - 8);
 });
 
 test("edge 6: AI pane resizer changes the assistant width", async ({ page }) => {
@@ -93,11 +93,11 @@ test("edge 6: AI pane resizer changes the assistant width", async ({ page }) => 
 
   await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
   await page.mouse.down();
-  await page.mouse.move(box.x - 50, box.y + box.height / 2);
+  await page.mouse.move(box.x + 160, box.y + box.height / 2);
   await page.mouse.up();
 
   const after = await assistantPane.boundingBox();
-  expect(after?.width).toBeGreaterThan(before.width + 20);
+  expect(after?.width).toBeLessThan(before.width - 8);
 });
 
 test("edge 7: AI controls expose provider, model, effort, mode, and message", async ({

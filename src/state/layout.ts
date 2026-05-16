@@ -6,8 +6,8 @@ export interface PaneLayout {
 export type ResizePane = "file" | "assistant";
 
 export const defaultPaneLayout: PaneLayout = {
-  filePaneWidth: 276,
-  assistantPaneWidth: 380,
+  filePaneWidth: 440,
+  assistantPaneWidth: 560,
 };
 
 const paneLimits: Record<keyof PaneLayout, { min: number; max: number }> = {

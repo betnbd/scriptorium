@@ -174,9 +174,9 @@ describe("EditorPane", () => {
     expect(onSelectionChange).toHaveBeenCalledWith("Selected line.");
   });
 
-  it("uses large-file mode without mounting the rich editor", () => {
+  it("uses large-file visual preview without mounting the rich editor", () => {
     const onChange = vi.fn();
-    const largeMarkdown = `# Manuscript\n\n${"Long line.\n".repeat(20_000)}`;
+    const largeMarkdown = `# Manuscript\n\n*Opening line.*\n\n${"Long line.\n".repeat(20_000)}`;
 
     render(
       <EditorPane
@@ -190,11 +190,39 @@ describe("EditorPane", () => {
       />,
     );
 
-    const editor = screen.getByRole("textbox", { name: "Markdown source editor" });
-
-    expect(screen.getByText("Large file mode")).toBeInTheDocument();
+    expect(screen.getByText("Large visual preview")).toBeInTheDocument();
+    expect(
+      screen.getByLabelText("Large file visual preview"),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Opening line.")).toBeInTheDocument();
+    expect(
+      screen.queryByRole("textbox", { name: "Markdown source editor" }),
+    ).not.toBeInTheDocument();
     expect(tiptap.useEditorCalls).toBe(0);
 
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it("uses editable markdown source mode for large files", () => {
+    const onChange = vi.fn();
+    const largeMarkdown = `# Manuscript\n\n${"Long line.\n".repeat(20_000)}`;
+
+    render(
+      <EditorPane
+        openFile={{ relativePath: "MANUSCRIPT.md", name: "MANUSCRIPT.md" }}
+        markdown={largeMarkdown}
+        mode="markdown"
+        isDirty={false}
+        onChange={onChange}
+        onSave={vi.fn()}
+        onModeChange={vi.fn()}
+      />,
+    );
+
+    const editor = screen.getByRole("textbox", { name: "Markdown source editor" });
+
+    expect(screen.getByText("Large editable source")).toBeInTheDocument();
+    expect(tiptap.useEditorCalls).toBe(0);
     fireEvent.change(editor, { target: { value: "# Revised" } });
 
     expect(onChange).toHaveBeenCalledWith("# Revised");
