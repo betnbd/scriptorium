@@ -22,6 +22,16 @@ cargo fmt --manifest-path src-tauri/Cargo.toml -- --check
 git diff --check
 ```
 
+Before publishing a desktop package, also run:
+
+```bash
+npm run tauri:build
+dpkg-deb --info src-tauri/target/release/bundle/deb/Scriptorium_0.1.0_amd64.deb
+dpkg-deb --contents src-tauri/target/release/bundle/deb/Scriptorium_0.1.0_amd64.deb
+```
+
+The Debian package should include `/usr/bin/scriptorium`, `Scriptorium.desktop`, and hicolor app icons.
+
 ## Public Release Check
 
 Before making a repository or release artifact public, also check:

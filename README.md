@@ -52,6 +52,14 @@ The current package target is a Debian bundle:
 src-tauri/target/release/bundle/deb/Scriptorium_0.1.0_amd64.deb
 ```
 
+Install or update the Debian package locally with:
+
+```bash
+sudo apt install ./src-tauri/target/release/bundle/deb/Scriptorium_0.1.0_amd64.deb
+```
+
+The package installs the `scriptorium` binary, a desktop launcher, and hicolor app icons. Remove the package with `sudo apt remove scriptorium`; user settings remain under the normal app config directory.
+
 ## Provider Setup
 
 Open Settings, use **Provider connections**, and run the sign-in flow for the provider you want. Scriptorium does not store OpenAI or Anthropic passwords.

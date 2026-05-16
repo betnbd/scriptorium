@@ -7,6 +7,16 @@
 3. Select a folder containing Markdown manuscript files.
 4. Pick a file from the left pane.
 
+## Install Or Update On Linux
+
+After building the Debian package, install it with:
+
+```bash
+sudo apt install ./src-tauri/target/release/bundle/deb/Scriptorium_0.1.0_amd64.deb
+```
+
+Installing a newer package upgrades the app in place. To remove the app package, run `sudo apt remove scriptorium`.
+
 ## Write
 
 - Use **Visual** mode for a clean writing view with Markdown syntax hidden.
