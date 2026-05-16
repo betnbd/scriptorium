@@ -106,6 +106,70 @@ export function SettingsDialog({
             />
           </section>
 
+          <section className="provider-model-settings">
+            <h3>Default AI models</h3>
+            <div className="settings-model-grid">
+              <label>
+                OpenAI model
+                <select
+                  value={draft.openaiModel}
+                  onChange={(event) =>
+                    setDraft({ ...draft, openaiModel: event.target.value })
+                  }
+                >
+                  <option value="gpt-5.5">GPT-5.5</option>
+                  <option value="gpt-5.4">GPT-5.4</option>
+                  <option value="gpt-5.4-mini">GPT-5.4 Mini</option>
+                  <option value="gpt-5.3-codex">GPT-5.3 Codex</option>
+                  <option value="gpt-5.3-codex-spark">
+                    GPT-5.3 Codex Spark
+                  </option>
+                </select>
+              </label>
+              <label>
+                OpenAI effort
+                <select
+                  value={draft.openaiEffort}
+                  onChange={(event) =>
+                    setDraft({ ...draft, openaiEffort: event.target.value })
+                  }
+                >
+                  <option value="low">Low</option>
+                  <option value="medium">Medium</option>
+                  <option value="high">High</option>
+                  <option value="xhigh">Extra high</option>
+                </select>
+              </label>
+              <label>
+                Claude model
+                <select
+                  value={draft.anthropicModel}
+                  onChange={(event) =>
+                    setDraft({ ...draft, anthropicModel: event.target.value })
+                  }
+                >
+                  <option value="sonnet">Sonnet</option>
+                  <option value="opus">Opus</option>
+                </select>
+              </label>
+              <label>
+                Claude effort
+                <select
+                  value={draft.anthropicEffort}
+                  onChange={(event) =>
+                    setDraft({ ...draft, anthropicEffort: event.target.value })
+                  }
+                >
+                  <option value="low">Low</option>
+                  <option value="medium">Medium</option>
+                  <option value="high">High</option>
+                  <option value="xhigh">Extra high</option>
+                  <option value="max">Max</option>
+                </select>
+              </label>
+            </div>
+          </section>
+
           <label>
             LM Studio base URL
             <input

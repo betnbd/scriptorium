@@ -64,7 +64,8 @@ describe("FileTree", () => {
 
     await userEvent.click(screen.getByRole("button", { name: "Open Folder" }));
 
-    expect(screen.getByText("No folder open")).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "Files" })).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "Outline" })).toBeInTheDocument();
     expect(onOpenFolder).toHaveBeenCalledOnce();
   });
 

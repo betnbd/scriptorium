@@ -57,6 +57,8 @@ export interface TauriApi {
     provider: "openai-subscription" | "anthropic-subscription",
     rootPath: string,
     prompt: string,
+    model: string,
+    effort?: string,
   ): Promise<string>;
   checkCliAgentStatus(
     provider: "openai-subscription" | "anthropic-subscription",
@@ -170,11 +172,11 @@ export function createTauriApi(deps: TauriApiDeps): TauriApi {
       return response.content;
     },
 
-    async sendCliAgentRequest(provider, rootPath, prompt) {
+    async sendCliAgentRequest(provider, rootPath, prompt, model, effort) {
       const response = await deps.invoke<{ content: string }>(
         "send_cli_agent_request",
         {
-          request: { provider, rootPath, prompt },
+          request: { provider, rootPath, prompt, model, effort },
         },
       );
 

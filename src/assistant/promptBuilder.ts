@@ -11,6 +11,7 @@ interface PromptInput {
 }
 
 const modeLabels: Record<AssistantMode, string> = {
+  chat: "Conversation",
   rewrite: "Full rewrite",
   diff: "Proposed diff edits",
   suggestions: "Suggestions only",
@@ -90,6 +91,13 @@ function formatProjectFiles(files: string[]): string {
 }
 
 function outputInstructions(mode: AssistantMode): string {
+  if (mode === "chat") {
+    return [
+      "Respond conversationally to the user's message.",
+      "Do not rewrite or edit the target Markdown unless the user explicitly asks for text to paste.",
+    ].join("\n");
+  }
+
   if (mode === "rewrite") {
     return [
       "Return only the rewritten Markdown for the target.",

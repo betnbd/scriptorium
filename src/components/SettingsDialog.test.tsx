@@ -24,6 +24,10 @@ describe("SettingsDialog", () => {
     expect(screen.getByText("Provider connections")).toBeInTheDocument();
     expect(screen.getByText("codex login")).toBeInTheDocument();
     expect(screen.getByText("claude auth login")).toBeInTheDocument();
+    await user.selectOptions(screen.getByLabelText("OpenAI model"), "gpt-5.4");
+    await user.selectOptions(screen.getByLabelText("OpenAI effort"), "high");
+    await user.selectOptions(screen.getByLabelText("Claude model"), "opus");
+    await user.selectOptions(screen.getByLabelText("Claude effort"), "max");
     await user.clear(screen.getByLabelText("LM Studio model"));
     await user.type(screen.getByLabelText("LM Studio model"), "mistral-local");
     await user.clear(screen.getByLabelText("Editor font size"));
@@ -36,6 +40,10 @@ describe("SettingsDialog", () => {
     expect(onSave).toHaveBeenCalledWith(
       expect.objectContaining({
         defaultProvider: "anthropic-subscription",
+        openaiModel: "gpt-5.4",
+        openaiEffort: "high",
+        anthropicModel: "opus",
+        anthropicEffort: "max",
         lmStudioModel: "mistral-local",
         editorFontSize: 20,
         ignoreHidden: false,

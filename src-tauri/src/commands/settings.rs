@@ -8,7 +8,15 @@ use tauri::Manager;
 pub struct Settings {
     pub default_provider: String,
     pub openai_url: String,
+    #[serde(default = "default_openai_model")]
+    pub openai_model: String,
+    #[serde(default = "default_effort")]
+    pub openai_effort: String,
     pub anthropic_url: String,
+    #[serde(default = "default_anthropic_model")]
+    pub anthropic_model: String,
+    #[serde(default = "default_effort")]
+    pub anthropic_effort: String,
     pub lm_studio_base_url: String,
     pub lm_studio_model: String,
     pub editor_font_size: u16,
@@ -87,4 +95,16 @@ fn canonical_root(root: &Path) -> Result<std::path::PathBuf, String> {
 
 fn default_true() -> bool {
     true
+}
+
+fn default_openai_model() -> String {
+    "gpt-5.5".to_string()
+}
+
+fn default_anthropic_model() -> String {
+    "sonnet".to_string()
+}
+
+fn default_effort() -> String {
+    "medium".to_string()
 }

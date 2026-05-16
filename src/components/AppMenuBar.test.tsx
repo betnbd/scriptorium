@@ -14,7 +14,7 @@ function renderMenu(overrides = {}) {
     onSettings: vi.fn(),
     onReindex: vi.fn(),
     onResetLayout: vi.fn(),
-    onResetAssistant: vi.fn(),
+    onOpenAssistant: vi.fn(),
     ...overrides,
   };
 
@@ -33,15 +33,20 @@ describe("AppMenuBar", () => {
     expect(props.onSave).toHaveBeenCalledOnce();
   });
 
-  it("exposes assistant session actions from the assistant menu", async () => {
+  it("mirrors a Typora-style menu row with AI actions", async () => {
     const user = userEvent.setup();
     const props = renderMenu();
 
-    await user.click(screen.getByText("Assistant"));
-    await user.click(screen.getByRole("button", { name: "Reset Conversation" }));
+    expect(screen.getByRole("button", { name: "Edit" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Paragraph" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Format" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Themes" })).toBeInTheDocument();
+    await user.click(screen.getByText("AI"));
+    await user.click(screen.getByRole("button", { name: "New Conversation" }));
+    await user.click(screen.getByText("AI"));
     await user.click(screen.getByRole("button", { name: "Provider Settings" }));
 
-    expect(props.onResetAssistant).toHaveBeenCalledOnce();
+    expect(props.onOpenAssistant).toHaveBeenCalledOnce();
     expect(props.onSettings).toHaveBeenCalledOnce();
   });
 });

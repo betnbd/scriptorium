@@ -39,23 +39,20 @@ export function FileTree({
   if (!rootPath) {
     return (
       <section className="file-tree file-tree-empty">
-        <div>
-          <h2>No folder open</h2>
-          <p>Open a manuscript folder to browse its files.</p>
-          <button type="button" onClick={onOpenFolder}>
-            <FolderOpen aria-hidden="true" size={16} />
-            Open Folder
-          </button>
-        </div>
+        <FileTreeTabs />
+        <button type="button" onClick={onOpenFolder}>
+          <FolderOpen aria-hidden="true" size={16} />
+          Open Folder
+        </button>
       </section>
     );
   }
 
   return (
     <section className="file-tree" aria-label="Project files">
+      <FileTreeTabs />
       <header className="file-tree-header">
         <div>
-          <h2>Files</h2>
           <p title={rootPath}>{rootPath}</p>
         </div>
         <div className="file-tree-toolbar" aria-label="File operations">
@@ -99,6 +96,19 @@ export function FileTree({
         )}
       </div>
     </section>
+  );
+}
+
+function FileTreeTabs() {
+  return (
+    <div className="file-tree-tabs" role="tablist" aria-label="Sidebar views">
+      <button type="button" className="is-active" role="tab" aria-selected="true">
+        Files
+      </button>
+      <button type="button" role="tab" aria-selected="false" disabled>
+        Outline
+      </button>
+    </div>
   );
 }
 

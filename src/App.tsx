@@ -1,5 +1,5 @@
 import { useEffect, useReducer, useRef, useState } from "react";
-import type { CSSProperties, PointerEvent as ReactPointerEvent } from "react";
+import type { CSSProperties } from "react";
 import { tauriApi } from "./api/tauri";
 import { applyAssistantResult } from "./assistant/applyResult";
 import { buildAssistantPrompt } from "./assistant/promptBuilder";
@@ -16,13 +16,6 @@ import { buildIndex, selectRelevantContext } from "./context/indexer";
 import { normalizeMarkdownForSave } from "./editor/markdown";
 import { appReducer, initialAppState } from "./state/appReducer";
 import { shouldSwitchFile } from "./state/guards";
-import {
-  defaultPaneLayout,
-  resetPaneLayout,
-  resizePaneLayout,
-  type PaneLayout,
-  type ResizePane,
-} from "./state/layout";
 import type {
   AppSettings,
   AssistantMode,
@@ -41,19 +34,11 @@ export default function App() {
   const [assistantSelection, setAssistantSelection] = useState<string | null>(
     null,
   );
-  const [assistantMode, setAssistantMode] = useState<AssistantMode>("rewrite");
+  const [assistantMode, setAssistantMode] = useState<AssistantMode>("chat");
+  const [isAssistantOpen, setIsAssistantOpen] = useState(false);
   const [isAssistantRunning, setIsAssistantRunning] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [hasLocalSettings, setHasLocalSettings] = useState(false);
-  const [paneLayout, setPaneLayout] =
-    useState<PaneLayout>(defaultPaneLayout);
-  const [activeResizePane, setActiveResizePane] =
-    useState<ResizePane | null>(null);
-  const resizeStateRef = useRef<{
-    pane: ResizePane;
-    startX: number;
-    layout: PaneLayout;
-  } | null>(null);
   const liveEditorRef = useRef<{
     relativePath: string | null;
     markdown: string;
@@ -65,44 +50,7 @@ export default function App() {
   const editorSettingsStyle = {
     "--editor-font-size": `${state.settings.editorFontSize}px`,
     "--editor-line-width": `${state.settings.editorLineWidth}px`,
-    "--file-pane-width": `${paneLayout.filePaneWidth}px`,
-    "--assistant-pane-width": `${paneLayout.assistantPaneWidth}px`,
   } as CSSProperties;
-
-  useEffect(() => {
-    if (!activeResizePane) {
-      return undefined;
-    }
-
-    function onPointerMove(event: PointerEvent) {
-      const resizeState = resizeStateRef.current;
-
-      if (!resizeState) {
-        return;
-      }
-
-      setPaneLayout(
-        resizePaneLayout({
-          layout: resizeState.layout,
-          pane: resizeState.pane,
-          deltaX: event.clientX - resizeState.startX,
-        }),
-      );
-    }
-
-    function onPointerUp() {
-      resizeStateRef.current = null;
-      setActiveResizePane(null);
-    }
-
-    window.addEventListener("pointermove", onPointerMove);
-    window.addEventListener("pointerup", onPointerUp);
-
-    return () => {
-      window.removeEventListener("pointermove", onPointerMove);
-      window.removeEventListener("pointerup", onPointerUp);
-    };
-  }, [activeResizePane]);
 
   useEffect(() => {
     let isMounted = true;
@@ -449,17 +397,10 @@ export default function App() {
     dispatch({ type: "errorShown", message: messageFromError(error) });
   }
 
-  function startPaneResize(
-    pane: ResizePane,
-    event: ReactPointerEvent<HTMLDivElement>,
-  ) {
-    event.preventDefault();
-    resizeStateRef.current = {
-      pane,
-      startX: event.clientX,
-      layout: paneLayout,
-    };
-    setActiveResizePane(pane);
+  function openAssistant() {
+    dispatch({ type: "assistantMessagesReset" });
+    setAssistantMode("chat");
+    setIsAssistantOpen(true);
   }
 
   function pathAffectsOpenFile(path: string) {
@@ -527,14 +468,14 @@ export default function App() {
         type: "assistantMessageAdded",
         message: {
           role: "user",
-          content: formatAssistantUserMessage(request, submittedFilePath),
+          content: formatAssistantUserMessage(request),
         },
       });
 
       if (request.provider === "lm-studio") {
         const response = await tauriApi.sendLmStudioRequest(
           state.settings.lmStudioBaseUrl,
-          state.settings.lmStudioModel,
+          request.model,
           prompt,
         );
 
@@ -551,6 +492,8 @@ export default function App() {
         request.provider,
         state.rootPath,
         prompt,
+        request.model,
+        request.effort,
       );
 
       importAssistantResponse(
@@ -585,6 +528,18 @@ export default function App() {
       liveEditorRef.current.markdown !== expectedMarkdown
     ) {
       showError("The open file changed before the assistant response returned.");
+      return;
+    }
+
+    if (mode === "chat") {
+      setAssistantMode(mode);
+      dispatch({
+        type: "assistantMessageAdded",
+        message: {
+          role: "assistant",
+          content: response.trim(),
+        },
+      });
       return;
     }
 
@@ -649,8 +604,8 @@ export default function App() {
         onSave={() => void saveFile()}
         onSettings={() => setIsSettingsOpen(true)}
         onReindex={() => void reindexProject()}
-        onResetLayout={() => setPaneLayout(resetPaneLayout())}
-        onResetAssistant={() => dispatch({ type: "assistantMessagesReset" })}
+        onResetLayout={() => undefined}
+        onOpenAssistant={openAssistant}
       />
       <div className="workspace-grid">
         <aside className="file-pane">
@@ -667,11 +622,6 @@ export default function App() {
             activePath={state.openFile?.relativePath}
           />
         </aside>
-        <PaneResizer
-          label="Resize file pane"
-          isActive={activeResizePane === "file"}
-          onPointerDown={(event) => startPaneResize("file", event)}
-        />
         <EditorPane
           openFile={state.openFile}
           markdown={state.openMarkdown}
@@ -682,31 +632,31 @@ export default function App() {
           onSave={saveFile}
           onSelectionChange={setAssistantSelection}
         />
-        <PaneResizer
-          label="Resize assistant pane"
-          isActive={activeResizePane === "assistant"}
-          onPointerDown={(event) => startPaneResize("assistant", event)}
-        />
-        <AssistantPane
-          key={state.settings.defaultProvider}
-          defaultProvider={state.settings.defaultProvider}
-          canSubmit={Boolean(state.openFile)}
-          isRunning={isAssistantRunning}
-          messages={state.assistantMessages}
-          providerStatuses={providerStatuses}
-          targetLabel={
-            state.openFile
-              ? assistantSelection?.trim()
-                ? `${state.openFile.relativePath} selection`
-                : state.openFile.relativePath
-              : null
-          }
-          onSubmit={(request) => {
-            void submitAssistantRequest(request);
-          }}
-          onImport={importAssistantResponse}
-        />
       </div>
+      {isAssistantOpen ? (
+        <div className="assistant-drawer-backdrop">
+          <AssistantPane
+            key={`${state.settings.defaultProvider}-${state.openFile?.relativePath ?? "none"}`}
+            settings={state.settings}
+            canSubmit={Boolean(state.openFile)}
+            isRunning={isAssistantRunning}
+            messages={state.assistantMessages}
+            providerStatuses={providerStatuses}
+            targetLabel={
+              state.openFile
+                ? assistantSelection?.trim()
+                  ? `${state.openFile.relativePath} selection`
+                  : state.openFile.relativePath
+                : null
+            }
+            onSubmit={(request) => {
+              void submitAssistantRequest(request);
+            }}
+            onImport={importAssistantResponse}
+            onClose={() => setIsAssistantOpen(false)}
+          />
+        </div>
+      ) : null}
       {isSettingsOpen ? (
         <SettingsDialog
           settings={state.settings}
@@ -720,27 +670,6 @@ export default function App() {
         />
       ) : null}
     </main>
-  );
-}
-
-function PaneResizer({
-  label,
-  isActive,
-  onPointerDown,
-}: {
-  label: string;
-  isActive: boolean;
-  onPointerDown: (event: ReactPointerEvent<HTMLDivElement>) => void;
-}) {
-  return (
-    <div
-      aria-label={label}
-      aria-orientation="vertical"
-      className={isActive ? "pane-resizer is-active" : "pane-resizer"}
-      onPointerDown={onPointerDown}
-      role="separator"
-      tabIndex={0}
-    />
   );
 }
 
@@ -832,19 +761,8 @@ function flattenProjectFilePaths(nodes: FileNode[]): string[] {
   });
 }
 
-function formatAssistantUserMessage(
-  request: AssistantRequest,
-  relativePath: string,
-): string {
-  const instruction = request.instruction.trim() || "Use your best editorial judgment.";
-  const providerLabel =
-    request.provider === "openai-subscription"
-      ? "OpenAI via Codex"
-      : request.provider === "anthropic-subscription"
-        ? "Anthropic via Claude Code"
-        : "LM Studio";
-
-  return `${providerLabel} / ${request.mode} / ${relativePath}\n\n${instruction}`;
+function formatAssistantUserMessage(request: AssistantRequest): string {
+  return request.instruction.trim();
 }
 
 async function buildMarkdownIndex(
@@ -930,8 +848,20 @@ function parseProjectEnvSettings(markdown: string): Partial<AppSettings> | null 
   if (values.DRAFTAGENT_OPENAI_URL) {
     parsed.openaiUrl = values.DRAFTAGENT_OPENAI_URL;
   }
+  if (values.DRAFTAGENT_OPENAI_MODEL) {
+    parsed.openaiModel = values.DRAFTAGENT_OPENAI_MODEL;
+  }
+  if (values.DRAFTAGENT_OPENAI_EFFORT) {
+    parsed.openaiEffort = values.DRAFTAGENT_OPENAI_EFFORT;
+  }
   if (values.DRAFTAGENT_ANTHROPIC_URL) {
     parsed.anthropicUrl = values.DRAFTAGENT_ANTHROPIC_URL;
+  }
+  if (values.DRAFTAGENT_ANTHROPIC_MODEL) {
+    parsed.anthropicModel = values.DRAFTAGENT_ANTHROPIC_MODEL;
+  }
+  if (values.DRAFTAGENT_ANTHROPIC_EFFORT) {
+    parsed.anthropicEffort = values.DRAFTAGENT_ANTHROPIC_EFFORT;
   }
   if (values.DRAFTAGENT_LM_STUDIO_BASE_URL) {
     parsed.lmStudioBaseUrl = values.DRAFTAGENT_LM_STUDIO_BASE_URL;

@@ -12,7 +12,7 @@ interface AppMenuBarProps {
   onSettings: () => void;
   onReindex: () => void;
   onResetLayout: () => void;
-  onResetAssistant: () => void;
+  onOpenAssistant: () => void;
 }
 
 export function AppMenuBar({
@@ -25,11 +25,10 @@ export function AppMenuBar({
   onSettings,
   onReindex,
   onResetLayout,
-  onResetAssistant,
+  onOpenAssistant,
 }: AppMenuBarProps) {
   return (
     <header className="app-menubar">
-      <div className="app-title">DraftAgent</div>
       <nav className="menu-groups" aria-label="Application menu">
         <Menu label="File">
           <button type="button" onClick={onOpenFolder}>
@@ -48,27 +47,61 @@ export function AppMenuBar({
           <button type="button" disabled={!canSave} onClick={onSave}>
             Save
           </button>
+          <button type="button" onClick={onSettings}>
+            Settings
+          </button>
+        </Menu>
+        <Menu label="Edit">
+          <button type="button" disabled>
+            Undo
+          </button>
+          <button type="button" disabled>
+            Redo
+          </button>
+        </Menu>
+        <Menu label="Paragraph">
+          <button type="button" disabled>
+            Heading
+          </button>
+          <button type="button" disabled>
+            Body Text
+          </button>
+        </Menu>
+        <Menu label="Format">
+          <button type="button" disabled>
+            Strong
+          </button>
+          <button type="button" disabled>
+            Emphasis
+          </button>
         </Menu>
         <Menu label="View">
           <button type="button" onClick={onResetLayout}>
-            Reset Panes
+            Reset Layout
           </button>
           <button type="button" disabled={!canUseProject} onClick={onReindex}>
             Reindex
           </button>
         </Menu>
-        <Menu label="Assistant">
-          <button type="button" onClick={onResetAssistant}>
-            Reset Conversation
+        <Menu label="Themes">
+          <button type="button" disabled>
+            Light
+          </button>
+        </Menu>
+        <Menu label="AI">
+          <button type="button" disabled={!canUseProject} onClick={onOpenAssistant}>
+            New Conversation
           </button>
           <button type="button" onClick={onSettings}>
             Provider Settings
           </button>
         </Menu>
+        <Menu label="Help">
+          <button type="button" disabled>
+            DraftAgent
+          </button>
+        </Menu>
       </nav>
-      <button className="menubar-settings" type="button" onClick={onSettings}>
-        Settings
-      </button>
     </header>
   );
 }
@@ -93,7 +126,18 @@ function Menu({
         {label}
         <ChevronDown aria-hidden="true" size={14} />
       </button>
-      {isOpen ? <div className="menu-popover">{children}</div> : null}
+      {isOpen ? (
+        <div
+          className="menu-popover"
+          onClick={(event) => {
+            if ((event.target as HTMLElement).closest("button")) {
+              setIsOpen(false);
+            }
+          }}
+        >
+          {children}
+        </div>
+      ) : null}
     </div>
   );
 }

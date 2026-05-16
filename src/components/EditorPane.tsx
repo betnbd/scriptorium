@@ -25,9 +25,7 @@ export function EditorPane({
 }: EditorPaneProps) {
   if (!openFile) {
     return (
-      <section className="editor-pane">
-        <div className="editor-empty">No file open</div>
-      </section>
+      <section className="editor-pane editor-pane-empty" aria-label="No file open" />
     );
   }
 

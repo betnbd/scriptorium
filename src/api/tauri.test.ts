@@ -112,6 +112,8 @@ describe("createTauriApi", () => {
       "openai-subscription",
       "/novel",
       "Revise this scene.",
+      "gpt-5.5",
+      "high",
     );
 
     expect(invoke).toHaveBeenCalledWith("send_cli_agent_request", {
@@ -119,6 +121,8 @@ describe("createTauriApi", () => {
         provider: "openai-subscription",
         rootPath: "/novel",
         prompt: "Revise this scene.",
+        model: "gpt-5.5",
+        effort: "high",
       },
     });
     expect(result).toBe("Built-in response.");

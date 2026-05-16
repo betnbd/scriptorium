@@ -71,7 +71,7 @@ describe("EditorPane", () => {
       />,
     );
 
-    expect(screen.getByText("No file open")).toBeInTheDocument();
+    expect(screen.getByLabelText("No file open")).toBeInTheDocument();
   });
 
   it("renders dirty status and file metadata", () => {

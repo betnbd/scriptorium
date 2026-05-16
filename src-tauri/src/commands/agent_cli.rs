@@ -23,6 +23,8 @@ pub struct CliAgentRequest {
     pub provider: CliAgentProvider,
     pub root_path: String,
     pub prompt: String,
+    pub model: Option<String>,
+    pub effort: Option<String>,
 }
 
 #[derive(Debug, Serialize)]
@@ -51,7 +53,12 @@ struct AgentCommandSpec {
 pub async fn send_cli_agent_request(request: CliAgentRequest) -> Result<CliAgentResponse, String> {
     tauri::async_runtime::spawn_blocking(move || {
         let root = canonical_root(Path::new(&request.root_path))?;
-        let spec = command_spec_for_provider(&request.provider, &root)?;
+        let spec = command_spec_for_provider(
+            &request.provider,
+            &root,
+            request.model.as_deref(),
+            request.effort.as_deref(),
+        )?;
         let content = run_agent_command(spec, &root, &request.prompt)?;
 
         Ok(CliAgentResponse { content })
@@ -96,8 +103,10 @@ pub fn start_cli_agent_login(provider: CliAgentProvider) -> Result<(), String> {
 fn command_spec_for_provider(
     provider: &CliAgentProvider,
     root: &Path,
+    model: Option<&str>,
+    effort: Option<&str>,
 ) -> Result<AgentCommandSpec, String> {
-    command_spec_for_provider_with_resolver(provider, root, resolve_command)
+    command_spec_for_provider_with_resolver(provider, root, model, effort, resolve_command)
 }
 
 fn check_cli_agent_status_with_resolver<F>(
@@ -205,6 +214,8 @@ fn parse_status_output(
 fn command_spec_for_provider_with_resolver<F>(
     provider: &CliAgentProvider,
     root: &Path,
+    model: Option<&str>,
+    effort: Option<&str>,
     resolver: F,
 ) -> Result<AgentCommandSpec, String>
 where
@@ -213,29 +224,40 @@ where
     match provider {
         CliAgentProvider::OpenaiSubscription => {
             let output_path = temp_output_path("codex");
+            let mut args: Vec<OsString> = vec![
+                "exec".into(),
+                "--skip-git-repo-check".into(),
+                "--ephemeral".into(),
+                "--ignore-rules".into(),
+                "--sandbox".into(),
+                "read-only".into(),
+                "--color".into(),
+                "never".into(),
+            ];
+            if let Some(model) = clean_optional_cli_value(model) {
+                args.push("--model".into());
+                args.push(model.into());
+            }
+            if let Some(effort) = clean_optional_cli_value(effort) {
+                args.push("-c".into());
+                args.push(format!("model_reasoning_effort=\"{effort}\"").into());
+            }
+            args.extend([
+                "--output-last-message".into(),
+                output_path.as_os_str().to_owned(),
+                "-C".into(),
+                root.as_os_str().to_owned(),
+                "-".into(),
+            ]);
+
             Ok(AgentCommandSpec {
                 program: resolver("codex")?,
-                args: vec![
-                    "exec".into(),
-                    "--skip-git-repo-check".into(),
-                    "--ephemeral".into(),
-                    "--ignore-rules".into(),
-                    "--sandbox".into(),
-                    "read-only".into(),
-                    "--color".into(),
-                    "never".into(),
-                    "--output-last-message".into(),
-                    output_path.as_os_str().to_owned(),
-                    "-C".into(),
-                    root.as_os_str().to_owned(),
-                    "-".into(),
-                ],
+                args,
                 output_path: Some(output_path),
             })
         }
-        CliAgentProvider::AnthropicSubscription => Ok(AgentCommandSpec {
-            program: resolver("claude")?,
-            args: vec![
+        CliAgentProvider::AnthropicSubscription => {
+            let mut args: Vec<OsString> = vec![
                 "--print".into(),
                 "--output-format".into(),
                 "text".into(),
@@ -244,10 +266,30 @@ where
                 "default".into(),
                 "--tools".into(),
                 "".into(),
-            ],
-            output_path: None,
-        }),
+            ];
+            if let Some(model) = clean_optional_cli_value(model) {
+                args.push("--model".into());
+                args.push(model.into());
+            }
+            if let Some(effort) = clean_optional_cli_value(effort) {
+                args.push("--effort".into());
+                args.push(effort.into());
+            }
+
+            Ok(AgentCommandSpec {
+                program: resolver("claude")?,
+                args,
+                output_path: None,
+            })
+        }
     }
+}
+
+fn clean_optional_cli_value(value: Option<&str>) -> Option<String> {
+    value
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(str::to_string)
 }
 
 fn run_agent_command(spec: AgentCommandSpec, root: &Path, prompt: &str) -> Result<String, String> {
@@ -458,6 +500,8 @@ mod tests {
         let spec = command_spec_for_provider_with_resolver(
             &CliAgentProvider::OpenaiSubscription,
             &root,
+            Some("gpt-5.5"),
+            Some("high"),
             fake_resolver,
         )
         .expect("codex command should build");
@@ -469,6 +513,10 @@ mod tests {
 
         assert!(spec.program.to_string_lossy().contains("codex"));
         assert!(args.contains(&"exec".to_string()));
+        assert!(args.contains(&"--model".to_string()));
+        assert!(args.contains(&"gpt-5.5".to_string()));
+        assert!(args.contains(&"-c".to_string()));
+        assert!(args.contains(&"model_reasoning_effort=\"high\"".to_string()));
         assert!(args.contains(&"read-only".to_string()));
         assert!(args.contains(&"--output-last-message".to_string()));
         assert!(args.contains(&"/tmp/novel".to_string()));
@@ -482,6 +530,8 @@ mod tests {
         let spec = command_spec_for_provider_with_resolver(
             &CliAgentProvider::AnthropicSubscription,
             &root,
+            Some("sonnet"),
+            Some("xhigh"),
             fake_resolver,
         )
         .expect("claude command should build");
@@ -493,6 +543,10 @@ mod tests {
 
         assert!(spec.program.to_string_lossy().contains("claude"));
         assert!(args.contains(&"--print".to_string()));
+        assert!(args.contains(&"--model".to_string()));
+        assert!(args.contains(&"sonnet".to_string()));
+        assert!(args.contains(&"--effort".to_string()));
+        assert!(args.contains(&"xhigh".to_string()));
         assert!(args.contains(&"--no-session-persistence".to_string()));
         assert!(args.contains(&"--tools".to_string()));
         assert!(args.contains(&"".to_string()));

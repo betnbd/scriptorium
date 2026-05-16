@@ -46,7 +46,11 @@ export type AppAction =
 export const defaultSettings: AppSettings = {
   defaultProvider: "openai-subscription",
   openaiUrl: "https://chatgpt.com/",
+  openaiModel: "gpt-5.5",
+  openaiEffort: "medium",
   anthropicUrl: "https://claude.ai/new",
+  anthropicModel: "sonnet",
+  anthropicEffort: "medium",
   lmStudioBaseUrl: "http://127.0.0.1:1234/v1",
   lmStudioModel: "local-model",
   editorFontSize: 18,
@@ -91,6 +95,7 @@ export function appReducer(state: AppState, action: AppAction): AppState {
         openMarkdown: action.markdown,
         savedMarkdown: action.markdown,
         isDirty: false,
+        assistantMessages: [],
       };
     case "openFileMetadataUpdated":
       if (!state.openFile) {
@@ -108,6 +113,7 @@ export function appReducer(state: AppState, action: AppAction): AppState {
         openMarkdown: "",
         savedMarkdown: "",
         isDirty: false,
+        assistantMessages: [],
       };
     case "editorChanged":
       return {
@@ -149,7 +155,7 @@ export function appReducer(state: AppState, action: AppAction): AppState {
     case "settingsLoaded":
       return {
         ...state,
-        settings: action.settings,
+        settings: { ...defaultSettings, ...action.settings },
       };
     case "errorShown":
       return {

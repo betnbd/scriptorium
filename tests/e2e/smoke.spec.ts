@@ -3,39 +3,33 @@ import { expect, test } from "@playwright/test";
 test("renders the DraftAgent workspace", async ({ page }) => {
   await page.goto("/");
 
-  await expect(page.locator(".app-title")).toHaveText("DraftAgent");
-  await expect(page.getByText("No file open")).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Assistant" })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Settings" })).toBeVisible();
   await expect(page.getByRole("button", { name: "File", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Edit", exact: true })).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Paragraph", exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Format", exact: true }),
+  ).toBeVisible();
   await expect(page.getByRole("button", { name: "View", exact: true })).toBeVisible();
   await expect(
-    page.getByRole("button", { name: "Assistant", exact: true }),
+    page.getByRole("button", { name: "Themes", exact: true }),
   ).toBeVisible();
-  await expect(page.getByRole("separator", { name: "Resize file pane" })).toBeVisible();
   await expect(
-    page.getByRole("separator", { name: "Resize assistant pane" }),
+    page.getByRole("button", { name: "AI", exact: true }),
   ).toBeVisible();
-  await expect(page.getByText("Terminal-backed conversation")).toBeVisible();
   await expect(
-    page.getByRole("button", { name: "Open a file to send" }),
+    page.getByRole("button", { name: "Help", exact: true }),
   ).toBeVisible();
+  await expect(page.getByRole("tab", { name: "Files" })).toBeVisible();
+  await expect(page.getByRole("tab", { name: "Outline" })).toBeVisible();
+  await expect(page.getByLabel("No file open")).toBeVisible();
+  await expect(page.getByLabel("AI conversation")).toHaveCount(0);
   await expect(page.getByRole("alert")).toHaveCount(0);
 
-  const filePane = page.locator(".file-pane");
-  const before = await filePane.boundingBox();
-  const fileResizer = page.getByRole("separator", { name: "Resize file pane" });
-  const box = await fileResizer.boundingBox();
-
-  if (!before || !box) {
-    throw new Error("Expected file pane and resize handle to be visible.");
-  }
-
-  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
-  await page.mouse.down();
-  await page.mouse.move(box.x + 40, box.y + box.height / 2);
-  await page.mouse.up();
-
-  const after = await filePane.boundingBox();
-  expect(after?.width).toBeGreaterThan(before.width + 20);
+  await page.getByRole("button", { name: "File", exact: true }).click();
+  await page.getByRole("button", { name: "Settings" }).click();
+  await expect(page.getByRole("dialog", { name: "Settings" })).toBeVisible();
+  await expect(page.getByLabel("OpenAI model")).toBeVisible();
+  await expect(page.getByLabel("Claude effort")).toBeVisible();
 });

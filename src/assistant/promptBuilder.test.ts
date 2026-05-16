@@ -60,6 +60,21 @@ describe("buildAssistantPrompt", () => {
     expect(prompt).toContain("Do not rewrite the passage");
   });
 
+  it("builds chat prompts that do not ask the agent to edit by default", () => {
+    const prompt = buildAssistantPrompt({
+      mode: "chat",
+      instruction: "Can you read this?",
+      targetLabel: "scene.md",
+      targetMarkdown: "Old line.",
+      projectFiles: [],
+      context: [],
+    });
+
+    expect(prompt).toContain("Mode: Conversation");
+    expect(prompt).toContain("Respond conversationally");
+    expect(prompt).toContain("Do not rewrite or edit");
+  });
+
   it("includes prior conversation turns for iterative CLI-backed chats", () => {
     const prompt = buildAssistantPrompt({
       mode: "suggestions",
@@ -71,7 +86,7 @@ describe("buildAssistantPrompt", () => {
       conversation: [
         {
           role: "user",
-          content: "Anthropic via Claude Code / suggestions / scene.md\n\nRead this document.",
+          content: "Read this document.",
         },
         {
           role: "assistant",

@@ -26,7 +26,7 @@ export type ProviderId =
   | "openai-subscription"
   | "anthropic-subscription"
   | "lm-studio";
-export type AssistantMode = "rewrite" | "diff" | "suggestions";
+export type AssistantMode = "chat" | "rewrite" | "diff" | "suggestions";
 
 export interface AssistantMessage {
   role: "user" | "assistant" | "system";
@@ -43,7 +43,11 @@ export interface ProviderStatus {
 export interface AppSettings {
   defaultProvider: ProviderId;
   openaiUrl: string;
+  openaiModel: string;
+  openaiEffort: string;
   anthropicUrl: string;
+  anthropicModel: string;
+  anthropicEffort: string;
   lmStudioBaseUrl: string;
   lmStudioModel: string;
   editorFontSize: number;
