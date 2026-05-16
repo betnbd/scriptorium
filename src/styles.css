@@ -578,6 +578,12 @@ select {
   color: #9f580a;
 }
 
+.editor-actions .status-large {
+  color: #697386;
+  font-size: 12px;
+  font-weight: 650;
+}
+
 .editor-actions button {
   min-width: 72px;
   border: 1px solid #b8c0cc;
@@ -645,6 +651,27 @@ select {
 
 .manuscript-editor .tiptap p {
   margin: 0 0 1em;
+}
+
+.large-markdown-editor {
+  display: block;
+  width: min(var(--editor-line-width, 760px), 100%);
+  min-height: calc(100vh - 170px);
+  margin: 0 auto;
+  padding: 28px 0 60px;
+  border: 0;
+  outline: none;
+  resize: none;
+  color: #20242a;
+  background: transparent;
+  font: 400 var(--editor-font-size, 18px) / 1.72 ui-monospace,
+    SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New",
+    monospace;
+}
+
+.large-markdown-editor:focus-visible {
+  outline: 2px solid #4f7db8;
+  outline-offset: 8px;
 }
 
 .settings-backdrop {

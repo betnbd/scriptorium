@@ -1,6 +1,7 @@
 import { Markdown } from "@tiptap/markdown";
 import { EditorContent, useEditor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
+import type { ChangeEvent, ReactNode, SyntheticEvent } from "react";
 import { useEffect, useRef } from "react";
 
 interface EditorPaneProps {
@@ -12,6 +13,8 @@ interface EditorPaneProps {
   onSelectionChange?: (markdown: string | null) => void;
 }
 
+const LARGE_MARKDOWN_EDITOR_LIMIT = 60_000;
+
 export function EditorPane({
   openFile,
   markdown,
@@ -20,6 +23,49 @@ export function EditorPane({
   onSave,
   onSelectionChange,
 }: EditorPaneProps) {
+  if (!openFile) {
+    return (
+      <section className="editor-pane">
+        <div className="editor-empty">No file open</div>
+      </section>
+    );
+  }
+
+  if (shouldUseLargeFileEditor(markdown)) {
+    return (
+      <LargeMarkdownEditor
+        openFile={openFile}
+        markdown={markdown}
+        isDirty={isDirty}
+        onChange={onChange}
+        onSave={onSave}
+        onSelectionChange={onSelectionChange}
+      />
+    );
+  }
+
+  return (
+    <RichMarkdownEditor
+      openFile={openFile}
+      markdown={markdown}
+      isDirty={isDirty}
+      onChange={onChange}
+      onSave={onSave}
+      onSelectionChange={onSelectionChange}
+    />
+  );
+}
+
+function RichMarkdownEditor({
+  openFile,
+  markdown,
+  isDirty,
+  onChange,
+  onSave,
+  onSelectionChange,
+}: EditorPaneProps & {
+  openFile: NonNullable<EditorPaneProps["openFile"]>;
+}) {
   const loadedContent = useRef<{
     relativePath: string;
     markdown: string;
@@ -52,7 +98,7 @@ export function EditorPane({
   });
 
   useEffect(() => {
-    if (!editor || !openFile) {
+    if (!editor) {
       loadedContent.current = null;
       return;
     }
@@ -76,31 +122,84 @@ export function EditorPane({
     };
   }, [editor, markdown, openFile]);
 
-  if (!openFile) {
-    return (
-      <section className="editor-pane">
-        <div className="editor-empty">No file open</div>
-      </section>
+  return (
+    <section className="editor-pane">
+      <EditorHeader openFile={openFile} isDirty={isDirty} onSave={onSave} />
+      <EditorContent editor={editor} className="manuscript-editor" />
+    </section>
+  );
+}
+
+function LargeMarkdownEditor({
+  openFile,
+  markdown,
+  isDirty,
+  onChange,
+  onSave,
+  onSelectionChange,
+}: EditorPaneProps & {
+  openFile: NonNullable<EditorPaneProps["openFile"]>;
+}) {
+  function updateSelection(event: SyntheticEvent<HTMLTextAreaElement>) {
+    const target = event.currentTarget;
+    const selectedText = target.value.slice(
+      target.selectionStart,
+      target.selectionEnd,
     );
+
+    onSelectionChange?.(selectedText.trim() ? selectedText : null);
   }
 
   return (
     <section className="editor-pane">
-      <header className="editor-header">
-        <div>
-          <h1>{openFile.name}</h1>
-          <p>{openFile.relativePath}</p>
-        </div>
-        <div className="editor-actions">
-          <span className={isDirty ? "status-dirty" : "status-saved"}>
-            {isDirty ? "Unsaved" : "Saved"}
-          </span>
-          <button type="button" onClick={onSave} disabled={!isDirty}>
-            Save
-          </button>
-        </div>
-      </header>
-      <EditorContent editor={editor} className="manuscript-editor" />
+      <EditorHeader openFile={openFile} isDirty={isDirty} onSave={onSave}>
+        <span className="status-large">Large file mode</span>
+      </EditorHeader>
+      <textarea
+        aria-label="Large Markdown editor"
+        className="large-markdown-editor"
+        value={markdown}
+        onChange={(event: ChangeEvent<HTMLTextAreaElement>) =>
+          onChange(event.currentTarget.value)
+        }
+        onKeyUp={updateSelection}
+        onPointerUp={updateSelection}
+        spellCheck
+      />
     </section>
   );
+}
+
+function EditorHeader({
+  openFile,
+  isDirty,
+  onSave,
+  children,
+}: {
+  openFile: NonNullable<EditorPaneProps["openFile"]>;
+  isDirty: boolean;
+  onSave: () => void;
+  children?: ReactNode;
+}) {
+  return (
+    <header className="editor-header">
+      <div>
+        <h1>{openFile.name}</h1>
+        <p>{openFile.relativePath}</p>
+      </div>
+      <div className="editor-actions">
+        {children}
+        <span className={isDirty ? "status-dirty" : "status-saved"}>
+          {isDirty ? "Unsaved" : "Saved"}
+        </span>
+        <button type="button" onClick={onSave} disabled={!isDirty}>
+          Save
+        </button>
+      </div>
+    </header>
+  );
+}
+
+function shouldUseLargeFileEditor(markdown: string): boolean {
+  return markdown.length > LARGE_MARKDOWN_EDITOR_LIMIT;
 }

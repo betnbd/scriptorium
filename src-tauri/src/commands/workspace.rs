@@ -21,15 +21,30 @@ pub struct TreeOptions {
 }
 
 #[tauri::command]
-pub fn read_project_tree(
+pub async fn read_project_tree(
+    root_path: String,
+    options: Option<TreeOptions>,
+) -> Result<Vec<FileNode>, String> {
+    tauri::async_runtime::spawn_blocking(move || read_project_tree_sync(root_path, options))
+        .await
+        .map_err(|err| format!("Could not read project tree: {err}"))?
+}
+
+#[tauri::command]
+pub async fn read_markdown_file(root_path: String, file_path: String) -> Result<OpenFile, String> {
+    tauri::async_runtime::spawn_blocking(move || read_markdown_file_sync(root_path, file_path))
+        .await
+        .map_err(|err| format!("Could not read Markdown file: {err}"))?
+}
+
+fn read_project_tree_sync(
     root_path: String,
     options: Option<TreeOptions>,
 ) -> Result<Vec<FileNode>, String> {
     scan_tree_with_options(Path::new(&root_path), options.unwrap_or_default())
 }
 
-#[tauri::command]
-pub fn read_markdown_file(root_path: String, file_path: String) -> Result<OpenFile, String> {
+fn read_markdown_file_sync(root_path: String, file_path: String) -> Result<OpenFile, String> {
     let root = canonical_root(Path::new(&root_path))?;
     let file = ensure_inside_root(&root, Path::new(&file_path))?;
 
@@ -460,7 +475,7 @@ mod tests {
         let chapter = root.path().join("chapter.md");
         fs::write(&chapter, "# Chapter").unwrap();
 
-        let opened = read_markdown_file(
+        let opened = read_markdown_file_sync(
             root.path().to_string_lossy().to_string(),
             "chapter.md".to_string(),
         )
@@ -479,7 +494,7 @@ mod tests {
 
         let notes = root.path().join("notes.txt");
         fs::write(&notes, "not markdown").unwrap();
-        let err = read_markdown_file(
+        let err = read_markdown_file_sync(
             root.path().to_string_lossy().to_string(),
             "notes.txt".to_string(),
         )

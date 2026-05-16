@@ -1,9 +1,10 @@
-import { act, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import type { ReactNode } from "react";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { EditorPane } from "./EditorPane";
 
 const tiptap = vi.hoisted(() => ({
+  useEditorCalls: 0,
   lastOptions: undefined as
     | {
         editorProps?: { attributes?: Record<string, string> };
@@ -22,6 +23,7 @@ const tiptap = vi.hoisted(() => ({
 
 vi.mock("@tiptap/react", () => ({
   useEditor: vi.fn((options) => {
+    tiptap.useEditorCalls += 1;
     tiptap.lastOptions = options;
 
     return {
@@ -53,6 +55,11 @@ vi.mock("@tiptap/react", () => ({
 }));
 
 describe("EditorPane", () => {
+  beforeEach(() => {
+    tiptap.useEditorCalls = 0;
+    tiptap.lastOptions = undefined;
+  });
+
   it("renders an empty state when no file is open", () => {
     render(
       <EditorPane
@@ -148,5 +155,29 @@ describe("EditorPane", () => {
     });
 
     expect(onSelectionChange).toHaveBeenCalledWith("Selected line.");
+  });
+
+  it("uses large-file mode without mounting the rich editor", () => {
+    const onChange = vi.fn();
+    const largeMarkdown = `# Manuscript\n\n${"Long line.\n".repeat(20_000)}`;
+
+    render(
+      <EditorPane
+        openFile={{ relativePath: "MANUSCRIPT.md", name: "MANUSCRIPT.md" }}
+        markdown={largeMarkdown}
+        isDirty={false}
+        onChange={onChange}
+        onSave={vi.fn()}
+      />,
+    );
+
+    const editor = screen.getByRole("textbox", { name: "Large Markdown editor" });
+
+    expect(screen.getByText("Large file mode")).toBeInTheDocument();
+    expect(tiptap.useEditorCalls).toBe(0);
+
+    fireEvent.change(editor, { target: { value: "# Revised" } });
+
+    expect(onChange).toHaveBeenCalledWith("# Revised");
   });
 });
