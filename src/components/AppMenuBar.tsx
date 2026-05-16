@@ -1,5 +1,5 @@
 import { ChevronDown } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { themeOptions } from "../themeOptions";
 import type { EditorCommand, EditorMode } from "./EditorPane";
@@ -47,10 +47,45 @@ export function AppMenuBar({
   onOpenAssistant,
 }: AppMenuBarProps) {
   const [openMenu, setOpenMenu] = useState<string | null>(null);
+  const menuRef = useRef<HTMLElement | null>(null);
+
+  useEffect(() => {
+    if (!openMenu) {
+      return undefined;
+    }
+
+    function onPointerDown(event: PointerEvent) {
+      if (
+        event.target instanceof Node &&
+        !menuRef.current?.contains(event.target)
+      ) {
+        setOpenMenu(null);
+      }
+    }
+
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        setOpenMenu(null);
+      }
+    }
+
+    window.addEventListener("pointerdown", onPointerDown);
+    window.addEventListener("keydown", onKeyDown);
+
+    return () => {
+      window.removeEventListener("pointerdown", onPointerDown);
+      window.removeEventListener("keydown", onKeyDown);
+    };
+  }, [openMenu]);
 
   return (
     <header className="app-menubar">
-      <nav className="menu-groups" aria-label="Application menu">
+      <nav
+        className="menu-groups"
+        aria-label="Application menu"
+        ref={menuRef}
+        role="menubar"
+      >
         <Menu
           isOpen={openMenu === "File"}
           label="File"
@@ -176,7 +211,7 @@ export function AppMenuBar({
           />
           <MenuItem
             disabled={!canUseEditor}
-            label="Code Fences"
+            label="Code Block"
             shortcut="Ctrl+Shift+K"
             onClick={() => onEditorCommand("codeBlock")}
           />
@@ -188,13 +223,13 @@ export function AppMenuBar({
         >
           <MenuItem
             disabled={!canUseEditor}
-            label="Strong"
+            label="Bold"
             shortcut="Ctrl+B"
             onClick={() => onEditorCommand("bold")}
           />
           <MenuItem
             disabled={!canUseEditor}
-            label="Emphasis"
+            label="Italic"
             shortcut="Ctrl+I"
             onClick={() => onEditorCommand("italic")}
           />
@@ -239,8 +274,8 @@ export function AppMenuBar({
             disabled={!canUseEditor}
             label={
               editorMode === "markdown"
-                ? "Exit Source Code Mode"
-                : "Source Code Mode"
+                ? "Exit Markdown Source"
+                : "Markdown Source"
             }
             shortcut="Ctrl+/"
             onClick={onToggleEditorMode}
@@ -273,7 +308,7 @@ export function AppMenuBar({
           onOpenChange={(nextOpen) => setOpenMenu(nextOpen ? "AI" : null)}
         >
           <MenuItem label="New Conversation" onClick={onOpenAssistant} />
-          <MenuItem label="Provider Settings" onClick={onSettings} />
+          <MenuItem label="AI Settings" onClick={onSettings} />
         </Menu>
         <Menu
           isOpen={openMenu === "Help"}
@@ -362,6 +397,7 @@ function Menu({
       {isOpen ? (
         <div
           className="menu-popover"
+          role="menu"
           onClick={(event) => {
             if ((event.target as HTMLElement).closest("button")) {
               onOpenChange(false);

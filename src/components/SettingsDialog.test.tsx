@@ -36,7 +36,7 @@ describe("SettingsDialog", () => {
     await user.type(screen.getByLabelText("Editor font size"), "20");
     await user.click(screen.getByLabelText("Ignore hidden files"));
     await user.click(screen.getByLabelText("Ignore binary files"));
-    await user.click(screen.getByLabelText("Use project .env preferences"));
+    await user.click(screen.getByLabelText("Use project .scriptorium.env preferences"));
     await user.click(screen.getByText("Save settings"));
 
     expect(onSave).toHaveBeenCalledWith(
@@ -52,7 +52,7 @@ describe("SettingsDialog", () => {
         editorFontSize: 20,
         ignoreHidden: false,
         ignoreBinaryFiles: false,
-        projectEnvEnabled: false,
+        projectEnvEnabled: true,
       }),
     );
   });

@@ -2,6 +2,24 @@
   "name": "scriptorium",
   "private": true,
   "version": "0.1.0",
+  "description": "Local-first desktop writing workspace for Markdown manuscripts with terminal-backed AI assistants.",
+  "license": "MIT",
+  "author": "betnbd",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/betnbd/draftagent.git"
+  },
+  "homepage": "https://github.com/betnbd/draftagent#readme",
+  "bugs": {
+    "url": "https://github.com/betnbd/draftagent/issues"
+  },
+  "keywords": [
+    "writing",
+    "markdown",
+    "fiction",
+    "tauri",
+    "ai"
+  ],
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -20,7 +38,6 @@
     "@tauri-apps/plugin-clipboard-manager": "^2.3.2",
     "@tauri-apps/plugin-dialog": "^2.7.1",
     "@tauri-apps/plugin-opener": "^2",
-    "@tauri-apps/plugin-shell": "^2.3.5",
     "@tiptap/extension-underline": "^3.23.4",
     "@tiptap/markdown": "^3.23.4",
     "@tiptap/pm": "^3.23.4",

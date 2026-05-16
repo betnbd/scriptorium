@@ -31,6 +31,7 @@ import {
 import type {
   AppSettings,
   AssistantMode,
+  AssistantPendingEdit,
   EditorFont,
   FileNode,
   IndexedDocument,
@@ -48,12 +49,13 @@ export default function App() {
   const [assistantSelection, setAssistantSelection] = useState<string | null>(
     null,
   );
+  const [pendingAssistantEdit, setPendingAssistantEdit] =
+    useState<AssistantPendingEdit | null>(null);
   const [assistantMode, setAssistantMode] = useState<AssistantMode>("chat");
   const [isAssistantOpen, setIsAssistantOpen] = useState(true);
   const [assistantSessionId, setAssistantSessionId] = useState(0);
   const [isAssistantRunning, setIsAssistantRunning] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-  const [hasLocalSettings, setHasLocalSettings] = useState(false);
   const [editorMode, setEditorMode] = useState<EditorMode>("visual");
   const [paneLayout, setPaneLayout] = useState<PaneLayout>(defaultPaneLayout);
   const [activeResizePane, setActiveResizePane] =
@@ -121,7 +123,6 @@ export default function App() {
       .loadSettings()
       .then((settings) => {
         if (isMounted && settings) {
-          setHasLocalSettings(true);
           dispatch({ type: "settingsLoaded", settings });
         }
       })
@@ -147,8 +148,10 @@ export default function App() {
       const isCommand = event.metaKey || event.ctrlKey;
 
       if (event.altKey && event.shiftKey && (key === "%" || key === "5")) {
-        event.preventDefault();
-        runEditorCommand("strike");
+        if (shouldRouteShortcutToEditor(event.target)) {
+          event.preventDefault();
+          runEditorCommand("strike");
+        }
         return;
       }
 
@@ -204,27 +207,29 @@ export default function App() {
     }
 
     try {
-      const project = await tauriApi.pickProjectFolder();
+      const rootPath = await tauriApi.pickProjectFolder();
 
-      if (!project) {
+      if (!rootPath) {
         return;
       }
 
       const projectSettings = await loadProjectEnvSettings(
-        project.rootPath,
+        rootPath,
         state.settings,
       );
       const effectiveSettings = projectSettings
-        ? hasLocalSettings
-          ? { ...projectSettings, ...state.settings }
-          : { ...state.settings, ...projectSettings }
+        ? {
+            ...state.settings,
+            ...projectSettings,
+            projectEnvEnabled: state.settings.projectEnvEnabled,
+          }
         : state.settings;
       const tree = await tauriApi.readProjectTree(
-        project.rootPath,
+        rootPath,
         effectiveSettings,
       );
       const indexedDocuments = await buildMarkdownIndex(
-        project.rootPath,
+        rootPath,
         tree,
         effectiveSettings,
       );
@@ -232,7 +237,7 @@ export default function App() {
       setAssistantSelection(null);
       dispatch({
         type: "projectOpened",
-        rootPath: project.rootPath,
+        rootPath,
         tree,
         indexedDocuments,
       });
@@ -348,7 +353,6 @@ export default function App() {
     dispatch({ type: "settingsLoaded", settings: nextSettings });
     void tauriApi
       .saveSettings(nextSettings)
-      .then(() => setHasLocalSettings(true))
       .catch(showError);
   }
 
@@ -413,7 +417,6 @@ export default function App() {
   async function saveSettings(settings: AppSettings) {
     try {
       await tauriApi.saveSettings(settings);
-      setHasLocalSettings(true);
       dispatch({ type: "settingsLoaded", settings });
       setIsSettingsOpen(false);
       if (state.rootPath) {
@@ -671,6 +674,10 @@ export default function App() {
 
       const submittedFilePath = state.openFile.relativePath;
       const submittedMarkdown = state.openMarkdown;
+      const guardedMarkdown =
+        request.mode === "rewrite" || request.mode === "diff"
+          ? submittedMarkdown
+          : undefined;
       const targetMarkdown = assistantSelection?.trim()
         ? assistantSelection
         : state.openMarkdown;
@@ -710,7 +717,7 @@ export default function App() {
           response,
           request.mode,
           submittedFilePath,
-          submittedMarkdown,
+          guardedMarkdown,
         );
         return;
       }
@@ -727,7 +734,7 @@ export default function App() {
         response,
         request.mode,
         submittedFilePath,
-        submittedMarkdown,
+        guardedMarkdown,
       );
     } catch (error) {
       showError(error);
@@ -751,6 +758,8 @@ export default function App() {
     }
 
     if (
+      mode !== "chat" &&
+      mode !== "suggestions" &&
       expectedMarkdown !== undefined &&
       liveEditorRef.current.markdown !== expectedMarkdown
     ) {
@@ -780,7 +789,13 @@ export default function App() {
 
       setAssistantMode(mode);
 
-      if (nextMarkdown !== state.openMarkdown) {
+      if (parsed.kind === "rewrite" || parsed.kind === "diff") {
+        setPendingAssistantEdit({
+          mode: parsed.kind,
+          response: response.trim(),
+          nextMarkdown,
+        });
+      } else if (nextMarkdown !== state.openMarkdown) {
         dispatch({ type: "editorChanged", markdown: nextMarkdown });
       }
 
@@ -792,21 +807,43 @@ export default function App() {
         },
       });
 
-      if (parsed.kind !== "suggestions") {
+      if (parsed.kind === "rewrite" || parsed.kind === "diff") {
         dispatch({
           type: "assistantMessageAdded",
           message: {
             role: "system",
             content:
               parsed.kind === "diff"
-                ? "Applied proposed edits to the open file."
-                : "Applied rewrite to the open file.",
+                ? "Review the proposed edits before applying them."
+                : "Review the rewrite before applying it.",
           },
         });
       }
     } catch (error) {
       showError(error);
     }
+  }
+
+  function applyPendingAssistantEdit() {
+    if (!pendingAssistantEdit) {
+      return;
+    }
+
+    dispatch({
+      type: "editorChanged",
+      markdown: pendingAssistantEdit.nextMarkdown,
+    });
+    dispatch({
+      type: "assistantMessageAdded",
+      message: {
+        role: "system",
+        content:
+          pendingAssistantEdit.mode === "diff"
+            ? "Applied proposed edits to the open file."
+            : "Applied rewrite to the open file.",
+      },
+    });
+    setPendingAssistantEdit(null);
   }
 
   return (
@@ -900,6 +937,7 @@ export default function App() {
               canSubmit={Boolean(state.openFile)}
               isRunning={isAssistantRunning}
               messages={state.assistantMessages}
+              pendingEdit={pendingAssistantEdit}
               providerStatuses={providerStatuses}
               targetLabel={
                 state.openFile
@@ -912,6 +950,8 @@ export default function App() {
                 void submitAssistantRequest(request);
               }}
               onImport={importAssistantResponse}
+              onApplyPendingEdit={applyPendingAssistantEdit}
+              onDiscardPendingEdit={() => setPendingAssistantEdit(null)}
               onClose={() => setIsAssistantOpen(false)}
             />
           </>
@@ -1153,15 +1193,48 @@ async function buildMarkdownIndex(
   tree: FileNode[],
   settings: AppSettings,
 ): Promise<IndexedDocument[]> {
-  const reads = flattenIndexableMarkdownFiles(tree, settings).map(async (file) => {
-    const opened = await tauriApi.readMarkdownFile(rootPath, file.relativePath);
-    return indexMarkdownFile(opened.file, opened.markdown);
-  });
-  const settled = await Promise.allSettled(reads);
+  const settled = await mapWithConcurrency(
+    flattenIndexableMarkdownFiles(tree, settings),
+    12,
+    async (file) => {
+      const opened = await tauriApi.readMarkdownFile(rootPath, file.relativePath);
+      return indexMarkdownFile(opened.file, opened.markdown);
+    },
+  );
 
   return settled.flatMap((result) =>
     result.status === "fulfilled" ? [result.value] : [],
   );
+}
+
+async function mapWithConcurrency<T, U>(
+  items: T[],
+  concurrency: number,
+  mapper: (item: T) => Promise<U>,
+): Promise<Array<PromiseSettledResult<U>>> {
+  const results: Array<PromiseSettledResult<U>> = [];
+  let nextIndex = 0;
+  const workerCount = Math.min(Math.max(concurrency, 1), items.length);
+
+  async function worker() {
+    while (nextIndex < items.length) {
+      const currentIndex = nextIndex;
+      nextIndex += 1;
+
+      try {
+        results[currentIndex] = {
+          status: "fulfilled",
+          value: await mapper(items[currentIndex]),
+        };
+      } catch (reason) {
+        results[currentIndex] = { status: "rejected", reason };
+      }
+    }
+  }
+
+  await Promise.all(Array.from({ length: workerCount }, worker));
+
+  return results;
 }
 
 function flattenIndexableMarkdownFiles(

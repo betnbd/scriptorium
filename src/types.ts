@@ -47,6 +47,12 @@ export interface AssistantMessage {
   content: string;
 }
 
+export interface AssistantPendingEdit {
+  mode: Extract<AssistantMode, "rewrite" | "diff">;
+  response: string;
+  nextMarkdown: string;
+}
+
 export interface ProviderStatus {
   provider: Extract<ProviderId, "openai-subscription" | "anthropic-subscription">;
   installed: boolean;

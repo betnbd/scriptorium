@@ -15,7 +15,6 @@ const tauriApiMock = vi.hoisted(() => ({
   deleteEntry: vi.fn(),
   moveEntry: vi.fn(),
   copyText: vi.fn(),
-  openExternal: vi.fn(),
   sendCliAgentRequest: vi.fn(),
   checkCliAgentStatus: vi.fn(),
   startCliAgentLogin: vi.fn(),
@@ -86,7 +85,6 @@ describe("App", () => {
     tauriApiMock.deleteEntry.mockReset();
     tauriApiMock.moveEntry.mockReset();
     tauriApiMock.copyText.mockReset();
-    tauriApiMock.openExternal.mockReset();
     tauriApiMock.sendCliAgentRequest.mockReset();
     tauriApiMock.checkCliAgentStatus.mockReset();
     tauriApiMock.startCliAgentLogin.mockReset();
@@ -132,6 +130,7 @@ describe("App", () => {
 
     render(<App />);
 
+    await waitFor(() => expect(tauriApiMock.loadSettings).toHaveBeenCalled());
     await user.click(screen.getByRole("button", { name: "Open Folder" }));
     await user.click(
       await screen.findByRole("button", { name: "Open chapter-1.md" }),
@@ -171,6 +170,9 @@ describe("App", () => {
     const user = userEvent.setup();
     const chapter = fileNode("chapter-1.md");
     mockProjectFolder([chapter]);
+    tauriApiMock.loadSettings.mockResolvedValueOnce({
+      projectEnvEnabled: true,
+    });
     tauriApiMock.loadProjectEnv.mockResolvedValueOnce(
       [
         "SCRIPTORIUM_DEFAULT_PROVIDER=anthropic-subscription",
@@ -183,6 +185,7 @@ describe("App", () => {
 
     render(<App />);
 
+    await waitFor(() => expect(tauriApiMock.loadSettings).toHaveBeenCalled());
     await user.click(screen.getByRole("button", { name: "Open Folder" }));
 
     expect(tauriApiMock.loadProjectEnv).toHaveBeenCalledWith("/novel");
@@ -190,10 +193,29 @@ describe("App", () => {
     expect(screen.getByLabelText("Provider")).toHaveValue("anthropic-subscription");
   });
 
+  it("does not read project override files unless the setting is enabled", async () => {
+    const user = userEvent.setup();
+    const chapter = fileNode("chapter-1.md");
+    mockProjectFolder([chapter]);
+    mockMarkdownReads({
+      "chapter-1.md": "# Chapter 1",
+    });
+
+    render(<App />);
+
+    await user.click(screen.getByRole("button", { name: "Open Folder" }));
+
+    expect(tauriApiMock.loadProjectEnv).not.toHaveBeenCalled();
+    expect(tauriApiMock.readProjectTree).toHaveBeenCalledTimes(1);
+  });
+
   it("loads project env model and effort preferences when no local settings exist", async () => {
     const user = userEvent.setup();
     const chapter = fileNode("chapter-1.md");
     mockProjectFolder([chapter]);
+    tauriApiMock.loadSettings.mockResolvedValueOnce({
+      projectEnvEnabled: true,
+    });
     tauriApiMock.loadProjectEnv.mockResolvedValueOnce(
       [
         "DRAFTAGENT_DEFAULT_PROVIDER=anthropic-subscription",
@@ -230,7 +252,7 @@ describe("App", () => {
     ).toBeDisabled();
   });
 
-  it("keeps saved app-local settings ahead of project env preferences", async () => {
+  it("applies opted-in project env preferences", async () => {
     const user = userEvent.setup();
     const chapter = fileNode("chapter-1.md");
     tauriApiMock.loadSettings.mockResolvedValueOnce({
@@ -260,7 +282,7 @@ describe("App", () => {
     await user.click(screen.getByRole("button", { name: "Open Folder" }));
 
     await openAssistant(user);
-    expect(screen.getByLabelText("Provider")).toHaveValue("openai-subscription");
+    expect(screen.getByLabelText("Provider")).toHaveValue("anthropic-subscription");
   });
 
   it("asks before opening a different folder while the current file is dirty", async () => {
@@ -423,7 +445,6 @@ describe("App", () => {
       "medium",
     );
     expect(tauriApiMock.copyText).not.toHaveBeenCalled();
-    expect(tauriApiMock.openExternal).not.toHaveBeenCalled();
     expect(screen.getByLabelText("Current markdown")).toHaveTextContent(
       "# Chapter 1 The house shuddered. Other line.",
     );
@@ -433,7 +454,7 @@ describe("App", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("sends LM Studio requests directly and imports the response", async () => {
+  it("queues LM Studio rewrites for review before applying them", async () => {
     const user = userEvent.setup();
     const chapter = fileNode("chapter-1.md");
     const notes = fileNode("notes.md");
@@ -469,11 +490,50 @@ describe("App", () => {
       expect.stringContaining("Old text."),
     );
     expect(tauriApiMock.copyText).not.toHaveBeenCalled();
-    expect(tauriApiMock.openExternal).not.toHaveBeenCalled();
+    expect(screen.getByLabelText("Current markdown")).toHaveTextContent(
+      "# Chapter 1 Old text.",
+    );
+    expect(screen.getByText("Rewrite ready")).toBeInTheDocument();
+    expect(
+      screen.getByText("Review the rewrite before applying it."),
+    ).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Apply edits" }));
     expect(screen.getByLabelText("Current markdown")).toHaveTextContent(
       "# Chapter 1 New local text.",
     );
     expect(screen.getByText("Applied rewrite to the open file.")).toBeInTheDocument();
+  });
+
+  it("keeps chat responses when the user keeps writing while the agent works", async () => {
+    const user = userEvent.setup();
+    const chapter = fileNode("chapter-1.md");
+    let resolveResponse: (value: string) => void = () => undefined;
+    mockProjectFolder([chapter]);
+    mockMarkdownReads({
+      "chapter-1.md": "# Chapter 1\n\nOld text.",
+    });
+    tauriApiMock.sendCliAgentRequest.mockReturnValueOnce(
+      new Promise((resolve) => {
+        resolveResponse = resolve;
+      }),
+    );
+
+    render(<App />);
+
+    await user.click(screen.getByRole("button", { name: "Open Folder" }));
+    await user.click(
+      await screen.findByRole("button", { name: "Open chapter-1.md" }),
+    );
+    await openAssistant(user);
+    await user.type(screen.getByLabelText("Message"), "Can you read this?");
+    await user.click(screen.getByRole("button", { name: "Send to OpenAI" }));
+    await user.click(screen.getByRole("button", { name: "Edit Text" }));
+    resolveResponse("Yes, I can read it.");
+
+    expect(await screen.findByText("Yes, I can read it.")).toBeInTheDocument();
+    expect(screen.getByLabelText("Current markdown")).toHaveTextContent(
+      "Changed lantern.",
+    );
   });
 
   it("does not import a stale LM Studio response after switching files", async () => {
@@ -679,7 +739,7 @@ describe("App", () => {
     ).toBeInTheDocument();
   });
 
-  it("imports a rewrite into the editor without saving to disk", async () => {
+  it("imports a rewrite for review before changing the editor", async () => {
     const user = userEvent.setup();
     const chapter = fileNode("chapter-1.md");
     mockProjectFolder([chapter]);
@@ -702,6 +762,11 @@ describe("App", () => {
     await user.click(screen.getByRole("button", { name: "Import" }));
 
     expect(screen.getByLabelText("Current markdown")).toHaveTextContent(
+      "# Chapter 1 Old text.",
+    );
+    expect(screen.getByText("Rewrite ready")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Apply edits" }));
+    expect(screen.getByLabelText("Current markdown")).toHaveTextContent(
       "# Chapter 1 New text.",
     );
     expect(screen.getByText("Unsaved")).toBeInTheDocument();
@@ -709,7 +774,7 @@ describe("App", () => {
     expect(tauriApiMock.writeMarkdownFile).not.toHaveBeenCalled();
   });
 
-  it("imports a unified diff into the editor without saving to disk", async () => {
+  it("imports a unified diff for review before changing the editor", async () => {
     const user = userEvent.setup();
     const chapter = fileNode("chapter-1.md");
     mockProjectFolder([chapter]);
@@ -732,6 +797,11 @@ describe("App", () => {
     );
     await user.click(screen.getByRole("button", { name: "Import" }));
 
+    expect(screen.getByLabelText("Current markdown")).toHaveTextContent(
+      "# Chapter 1 Old text.",
+    );
+    expect(screen.getByText("Proposed edits ready")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Apply edits" }));
     expect(screen.getByLabelText("Current markdown")).toHaveTextContent(
       "# Chapter 1 New text.",
     );
@@ -837,10 +907,7 @@ function mockMarkdownReads(markdownByPath: Record<string, string>) {
 }
 
 function mockProjectFolder(tree: FileNode[]) {
-  tauriApiMock.pickProjectFolder.mockResolvedValueOnce({
-    rootPath: "/novel",
-    tree,
-  });
+  tauriApiMock.pickProjectFolder.mockResolvedValueOnce("/novel");
   tauriApiMock.readProjectTree.mockResolvedValueOnce(tree);
 }
 

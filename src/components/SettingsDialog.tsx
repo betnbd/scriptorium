@@ -31,15 +31,15 @@ export function SettingsDialog({
   }, [settings]);
 
   return (
-    <div
-      className="settings-backdrop"
-      role="dialog"
-      aria-modal="true"
-      aria-label="Settings"
-    >
-      <section className="settings-dialog">
+    <div className="settings-backdrop">
+      <section
+        aria-labelledby="settings-title"
+        aria-modal="true"
+        className="settings-dialog"
+        role="dialog"
+      >
         <header className="settings-header">
-          <h2>Settings</h2>
+          <h2 id="settings-title">Settings</h2>
           <button type="button" onClick={onClose}>
             Close
           </button>
@@ -307,7 +307,7 @@ export function SettingsDialog({
                 setDraft({ ...draft, projectEnvEnabled: event.target.checked })
               }
             />
-            Use project .env preferences
+            Use project .scriptorium.env preferences
           </label>
 
           <div className="settings-actions">

@@ -4,6 +4,7 @@ PROJECT.local.md
 .env
 .env.*
 !.env.example
+.scriptorium.env
 node_modules/
 dist/
 build/

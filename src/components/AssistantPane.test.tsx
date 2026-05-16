@@ -162,6 +162,28 @@ describe("AssistantPane", () => {
     expect(screen.getByText("Waiting for Claude's response.")).toBeInTheDocument();
   });
 
+  it("shows pending assistant edits with apply and discard actions", async () => {
+    const user = userEvent.setup();
+    const onApplyPendingEdit = vi.fn();
+    const onDiscardPendingEdit = vi.fn();
+    renderPane({
+      pendingEdit: {
+        mode: "diff",
+        response: "diff text",
+        nextMarkdown: "# Revised",
+      },
+      onApplyPendingEdit,
+      onDiscardPendingEdit,
+    });
+
+    expect(screen.getByText("Proposed edits ready")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Apply edits" }));
+    await user.click(screen.getByRole("button", { name: "Discard" }));
+
+    expect(onApplyPendingEdit).toHaveBeenCalledOnce();
+    expect(onDiscardPendingEdit).toHaveBeenCalledOnce();
+  });
+
   it("disables sending when there is no open file or no message", async () => {
     const user = userEvent.setup();
     renderPane({ canSubmit: false });

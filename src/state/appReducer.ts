@@ -60,7 +60,7 @@ export const defaultSettings: AppSettings = {
   ignoreHidden: true,
   ignoreLargeFiles: true,
   ignoreBinaryFiles: true,
-  projectEnvEnabled: true,
+  projectEnvEnabled: false,
 };
 
 export const initialAppState: AppState = {

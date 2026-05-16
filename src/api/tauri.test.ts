@@ -1,38 +1,22 @@
 import { describe, expect, it, vi } from "vitest";
 import { createBrowserTauriApi, createTauriApi } from "./tauri";
 import { defaultSettings } from "../state/appReducer";
-import type { FileNode } from "../types";
 
 describe("createTauriApi", () => {
-  it("opens a project folder and reads its project tree", async () => {
-    const tree: FileNode[] = [
-      {
-        path: "/novel/chapter-1.md",
-        relativePath: "chapter-1.md",
-        name: "chapter-1.md",
-        extension: "md",
-        kind: "file",
-        isMarkdown: true,
-        modifiedAt: 10,
-        size: 42,
-      },
-    ];
+  it("opens a project folder and returns its path", async () => {
     const open = vi.fn().mockResolvedValue("/novel");
-    const invoke = vi.fn().mockResolvedValue(tree);
+    const invoke = vi.fn();
     const api = createTauriApi({
       invoke,
       open,
       writeText: vi.fn(),
-      openUrl: vi.fn(),
     });
 
     const result = await api.pickProjectFolder();
 
     expect(open).toHaveBeenCalledWith({ directory: true, multiple: false });
-    expect(invoke).toHaveBeenCalledWith("read_project_tree", {
-      rootPath: "/novel",
-    });
-    expect(result).toEqual({ rootPath: "/novel", tree });
+    expect(invoke).not.toHaveBeenCalled();
+    expect(result).toBe("/novel");
   });
 
   it("invokes file operation commands with typed arguments", async () => {
@@ -41,7 +25,6 @@ describe("createTauriApi", () => {
       invoke,
       open: vi.fn(),
       writeText: vi.fn(),
-      openUrl: vi.fn(),
     });
 
     await api.createFile("/novel", "chapter.md");
@@ -80,7 +63,6 @@ describe("createTauriApi", () => {
       invoke,
       open: vi.fn(),
       writeText: vi.fn(),
-      openUrl: vi.fn(),
     });
 
     const result = await api.sendLmStudioRequest(
@@ -105,7 +87,6 @@ describe("createTauriApi", () => {
       invoke,
       open: vi.fn(),
       writeText: vi.fn(),
-      openUrl: vi.fn(),
     });
 
     const result = await api.sendCliAgentRequest(
@@ -142,7 +123,6 @@ describe("createTauriApi", () => {
       invoke,
       open: vi.fn(),
       writeText: vi.fn(),
-      openUrl: vi.fn(),
     });
 
     await expect(
@@ -178,7 +158,6 @@ describe("createTauriApi", () => {
       invoke,
       open: vi.fn(),
       writeText: vi.fn(),
-      openUrl: vi.fn(),
     });
 
     await expect(api.loadSettings()).resolves.toEqual(savedSettings);
@@ -200,7 +179,6 @@ describe("createTauriApi", () => {
       invoke,
       open: vi.fn(),
       writeText: vi.fn(),
-      openUrl: vi.fn(),
     });
 
     await api.readProjectTree("/novel", {

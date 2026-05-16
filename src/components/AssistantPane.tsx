@@ -3,6 +3,7 @@ import type {
   AppSettings,
   AssistantMessage,
   AssistantMode,
+  AssistantPendingEdit,
   ProviderId,
   ProviderStatus,
 } from "../types";
@@ -20,6 +21,7 @@ interface AssistantPaneProps {
   messages: AssistantMessage[];
   canSubmit?: boolean;
   isRunning?: boolean;
+  pendingEdit?: AssistantPendingEdit | null;
   providerStatuses?: Partial<
     Record<
       Extract<ProviderId, "openai-subscription" | "anthropic-subscription">,
@@ -29,6 +31,8 @@ interface AssistantPaneProps {
   targetLabel?: string | null;
   onSubmit: (request: AssistantRequest) => void;
   onImport: (response: string, mode: AssistantMode) => void;
+  onApplyPendingEdit?: () => void;
+  onDiscardPendingEdit?: () => void;
   onClose: () => void;
 }
 
@@ -37,10 +41,13 @@ export function AssistantPane({
   messages,
   canSubmit = true,
   isRunning = false,
+  pendingEdit = null,
   providerStatuses = {},
   targetLabel = null,
   onSubmit,
   onImport,
+  onApplyPendingEdit,
+  onDiscardPendingEdit,
   onClose,
 }: AssistantPaneProps) {
   const [provider, setProvider] = useState<ProviderId>(settings.defaultProvider);
@@ -174,6 +181,25 @@ export function AssistantPane({
           </div>
         ) : null}
       </div>
+
+      {pendingEdit ? (
+        <section className="assistant-pending-edit" aria-label="Pending assistant edit">
+          <div>
+            <strong>
+              {pendingEdit.mode === "diff" ? "Proposed edits" : "Rewrite"} ready
+            </strong>
+            <span>Review the response above before changing the open file.</span>
+          </div>
+          <div className="assistant-pending-actions">
+            <button type="button" onClick={onDiscardPendingEdit}>
+              Discard
+            </button>
+            <button type="button" onClick={onApplyPendingEdit}>
+              Apply edits
+            </button>
+          </div>
+        </section>
+      ) : null}
 
       <div className="assistant-controls">
         <div className="assistant-field-grid">

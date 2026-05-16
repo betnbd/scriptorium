@@ -516,10 +516,41 @@ select {
 
 .assistant-controls,
 .assistant-import,
+.assistant-pending-edit,
 .assistant-history {
   display: flex;
   flex-direction: column;
   gap: 10px;
+}
+
+.assistant-pending-edit {
+  border: 1px solid #d7d7d7;
+  border-radius: 6px;
+  padding: 10px;
+  background: #f8fafc;
+}
+
+.assistant-pending-edit strong,
+.assistant-pending-edit span {
+  display: block;
+}
+
+.assistant-pending-edit strong {
+  color: #2c2c2c;
+  font-size: 13px;
+}
+
+.assistant-pending-edit span {
+  margin-top: 2px;
+  color: #666666;
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.assistant-pending-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
 }
 
 .assistant-history {
@@ -1578,6 +1609,7 @@ select {
 }
 
 [data-theme] .assistant-header h2,
+[data-theme] .assistant-pending-edit strong,
 [data-theme] .editor-header h1,
 [data-theme] .settings-header h2,
 [data-theme] .provider-model-settings h3,
@@ -1593,6 +1625,7 @@ select {
 [data-theme] .assistant-header p,
 [data-theme] .assistant-empty,
 [data-theme] .assistant-message-label,
+[data-theme] .assistant-pending-edit span,
 [data-theme] .assistant-pane label,
 [data-theme] .assistant-import summary,
 [data-theme] .file-tree-tabs button,
@@ -1617,6 +1650,7 @@ select {
 [data-theme] .assistant-history,
 [data-theme] .assistant-message,
 [data-theme] .assistant-message-system,
+[data-theme] .assistant-pending-edit,
 [data-theme] .provider-connection-row,
 [data-theme] .settings-dialog {
   border-color: var(--border);
@@ -1719,6 +1753,7 @@ select {
 }
 
 [data-theme] .assistant-close,
+[data-theme] .assistant-pending-actions button:first-child,
 [data-theme] .assistant-import button,
 [data-theme] .file-tree-empty > button,
 [data-theme] .file-tree-toolbar button,

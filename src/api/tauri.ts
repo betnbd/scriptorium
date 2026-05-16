@@ -1,7 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
 import { writeText } from "@tauri-apps/plugin-clipboard-manager";
 import { open } from "@tauri-apps/plugin-dialog";
-import { open as openUrl } from "@tauri-apps/plugin-shell";
 import type { AppSettings, FileNode, OpenFile, ProviderStatus } from "../types";
 
 type Invoke = <T>(command: string, args?: Record<string, unknown>) => Promise<T>;
@@ -10,17 +9,15 @@ type OpenDialog = (options: {
   multiple: false;
 }) => Promise<string | string[] | null>;
 type WriteText = (text: string) => Promise<void>;
-type OpenUrl = (url: string) => Promise<void>;
 
 export interface TauriApiDeps {
   invoke: Invoke;
   open: OpenDialog;
   writeText: WriteText;
-  openUrl: OpenUrl;
 }
 
 export interface TauriApi {
-  pickProjectFolder(): Promise<{ rootPath: string; tree: FileNode[] } | null>;
+  pickProjectFolder(): Promise<string | null>;
   readProjectTree(
     rootPath: string,
     options?: Pick<
@@ -44,7 +41,6 @@ export interface TauriApi {
     newRelativePath: string,
   ): Promise<void>;
   copyText(text: string): Promise<void>;
-  openExternal(url: string): Promise<void>;
   loadSettings(): Promise<AppSettings | null>;
   loadProjectEnv(rootPath: string): Promise<string | null>;
   saveSettings(settings: AppSettings): Promise<void>;
@@ -98,9 +94,7 @@ export function createTauriApi(deps: TauriApiDeps): TauriApi {
         return null;
       }
 
-      const tree = await readProjectTree(selected);
-
-      return { rootPath: selected, tree };
+      return selected;
     },
 
     readProjectTree(rootPath, options) {
@@ -143,10 +137,6 @@ export function createTauriApi(deps: TauriApiDeps): TauriApi {
 
     copyText(text) {
       return deps.writeText(text);
-    },
-
-    openExternal(url) {
-      return deps.openUrl(url);
     },
 
     loadSettings() {
@@ -229,9 +219,6 @@ export function createBrowserTauriApi(): TauriApi {
     async writeText(text) {
       await navigator.clipboard?.writeText(text);
     },
-    async openUrl(url) {
-      window.open(url, "_blank", "noopener,noreferrer");
-    },
   });
 }
 
@@ -244,6 +231,5 @@ export const tauriApi = isTauriRuntime()
       invoke,
       open,
       writeText,
-      openUrl,
     })
   : createBrowserTauriApi();

@@ -52,7 +52,7 @@ describe("AppMenuBar", () => {
     await user.click(screen.getByText("AI"));
     await user.click(screen.getByRole("button", { name: "New Conversation" }));
     await user.click(screen.getByText("AI"));
-    await user.click(screen.getByRole("button", { name: "Provider Settings" }));
+    await user.click(screen.getByRole("button", { name: "AI Settings" }));
 
     expect(props.onOpenAssistant).toHaveBeenCalledOnce();
     expect(props.onSettings).toHaveBeenCalledOnce();
@@ -85,7 +85,7 @@ describe("AppMenuBar", () => {
     await user.click(screen.getByText("Paragraph"));
     await user.click(screen.getByRole("button", { name: "Heading 2" }));
     await user.click(screen.getByText("Format"));
-    await user.click(screen.getByRole("button", { name: "Strong" }));
+    await user.click(screen.getByRole("button", { name: "Bold" }));
 
     expect(props.onEditorCommand).toHaveBeenNthCalledWith(1, "heading2");
     expect(props.onEditorCommand).toHaveBeenNthCalledWith(2, "bold");
@@ -96,7 +96,7 @@ describe("AppMenuBar", () => {
     const props = renderMenu();
 
     await user.click(screen.getByText("View"));
-    await user.click(screen.getByRole("button", { name: "Source Code Mode" }));
+    await user.click(screen.getByRole("button", { name: "Markdown Source" }));
 
     expect(props.onToggleEditorMode).toHaveBeenCalledOnce();
   });
