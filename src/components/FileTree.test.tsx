@@ -85,6 +85,30 @@ describe("FileTree", () => {
     expect(screen.getByText("notes.md")).toBeInTheDocument();
   });
 
+  it("collapses and expands manuscript folders", async () => {
+    const user = userEvent.setup();
+
+    render(
+      <FileTree
+        rootPath="/novel"
+        nodes={nodes}
+        onOpenFolder={vi.fn()}
+        onOpenFile={vi.fn()}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: "Collapse chapters" }));
+
+    expect(screen.queryByText("chapter-1.md")).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Expand chapters" }),
+    ).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Expand chapters" }));
+
+    expect(screen.getByText("chapter-1.md")).toBeInTheDocument();
+  });
+
   it("opens Markdown files when clicked", async () => {
     const onOpenFile = vi.fn();
 

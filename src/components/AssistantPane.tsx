@@ -151,84 +151,90 @@ export function AssistantPane({
       </div>
 
       <div className="assistant-controls">
-        <label>
-          Provider
-          <select
-            aria-label="Provider"
-            value={provider}
-            onChange={(event) => setProvider(event.target.value as ProviderId)}
-          >
-            <option value="openai-subscription">
-              OpenAI subscription via Codex
-            </option>
-            <option value="anthropic-subscription">
-              Anthropic subscription via Claude Code
-            </option>
-            <option value="lm-studio">LM Studio</option>
-          </select>
-        </label>
-
-        <label>
-          Model
-          {provider === "lm-studio" ? (
-            <input
-              aria-label="Model"
-              value={lmStudioModel}
-              onChange={(event) => setLmStudioModel(event.target.value)}
-            />
-          ) : (
-            <select
-              aria-label="Model"
-              value={selectedModel}
-              onChange={(event) =>
-                provider === "openai-subscription"
-                  ? setOpenaiModel(event.target.value)
-                  : setAnthropicModel(event.target.value)
-              }
-            >
-              {modelOptionsForProvider(provider).map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-          )}
-        </label>
-
-        {provider !== "lm-studio" ? (
+        <div className="assistant-field-grid">
           <label>
-            Effort
+            Provider
             <select
-              aria-label="Effort"
-              value={selectedEffort}
-              onChange={(event) =>
-                provider === "openai-subscription"
-                  ? setOpenaiEffort(event.target.value)
-                  : setAnthropicEffort(event.target.value)
-              }
+              aria-label="Provider"
+              value={provider}
+              onChange={(event) => setProvider(event.target.value as ProviderId)}
             >
-              {effortOptionsForProvider(provider).map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
+              <option value="openai-subscription">
+                OpenAI subscription via Codex
+              </option>
+              <option value="anthropic-subscription">
+                Anthropic subscription via Claude Code
+              </option>
+              <option value="lm-studio">LM Studio</option>
             </select>
           </label>
-        ) : null}
 
-        <label>
-          Mode
-          <select
-            aria-label="Mode"
-            value={mode}
-            onChange={(event) => setMode(event.target.value as AssistantMode)}
-          >
-            <option value="chat">Chat</option>
-            <option value="rewrite">Full rewrite</option>
-            <option value="diff">Proposed edits</option>
-            <option value="suggestions">Suggestions</option>
-          </select>
-        </label>
+          <label>
+            Model
+            {provider === "lm-studio" ? (
+              <input
+                aria-label="Model"
+                value={lmStudioModel}
+                onChange={(event) => setLmStudioModel(event.target.value)}
+              />
+            ) : (
+              <select
+                aria-label="Model"
+                value={selectedModel}
+                onChange={(event) =>
+                  provider === "openai-subscription"
+                    ? setOpenaiModel(event.target.value)
+                    : setAnthropicModel(event.target.value)
+                }
+              >
+                {modelOptionsForProvider(provider).map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            )}
+          </label>
+
+          {provider !== "lm-studio" ? (
+            <label>
+              Effort
+              <select
+                aria-label="Effort"
+                value={selectedEffort}
+                onChange={(event) =>
+                  provider === "openai-subscription"
+                    ? setOpenaiEffort(event.target.value)
+                    : setAnthropicEffort(event.target.value)
+                }
+              >
+                {effortOptionsForProvider(provider).map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+          ) : null}
+        </div>
+
+        <div aria-label="Mode" className="mode-segment" role="radiogroup">
+          {modeOptions.map((option) => (
+            <label
+              className={mode === option.value ? "is-active" : ""}
+              key={option.value}
+            >
+              <input
+                checked={mode === option.value}
+                name="assistant-mode"
+                onChange={() => setMode(option.value)}
+                type="radio"
+                value={option.value}
+              />
+              <span>{option.label}</span>
+            </label>
+          ))}
+        </div>
 
         <label>
           Message
@@ -240,14 +246,22 @@ export function AssistantPane({
           />
         </label>
 
-        <button type="button" disabled={sendDisabled} onClick={submitMessage}>
-          {sendButtonLabel({ isRunning, canSubmit, isProviderBlocked, provider })}
-        </button>
-        {provider !== "lm-studio" ? (
-          <div className="assistant-status">
-            {providerStatusLabel(providerStatus, provider)}
-          </div>
-        ) : null}
+        <div className="assistant-submit-row">
+          <button type="button" disabled={sendDisabled} onClick={submitMessage}>
+            {sendButtonLabel({ isRunning, canSubmit, isProviderBlocked, provider })}
+          </button>
+          {provider !== "lm-studio" ? (
+            <span
+              className={
+                isProviderBlocked
+                  ? "assistant-status is-blocked"
+                  : "assistant-status"
+              }
+            >
+              {providerStatusLabel(providerStatus, provider)}
+            </span>
+          ) : null}
+        </div>
       </div>
 
       <details className="assistant-import">
@@ -281,6 +295,13 @@ function assistantDisplayLabel(provider: ProviderId) {
 
   return "LM Studio";
 }
+
+const modeOptions: Array<{ value: AssistantMode; label: string }> = [
+  { value: "chat", label: "Chat" },
+  { value: "rewrite", label: "Rewrite" },
+  { value: "diff", label: "Diff" },
+  { value: "suggestions", label: "Suggest" },
+];
 
 function messageLabel(role: AssistantMessage["role"], assistantLabel: string) {
   if (role === "user") {

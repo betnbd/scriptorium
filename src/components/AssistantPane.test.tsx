@@ -23,7 +23,7 @@ describe("AssistantPane", () => {
     const user = userEvent.setup();
     const props = renderPane();
 
-    expect(screen.getByLabelText("Mode")).toHaveValue("chat");
+    expect(screen.getByRole("radio", { name: "Chat" })).toBeChecked();
     expect(screen.getByLabelText("Model")).toHaveValue("gpt-5.5");
     expect(screen.getByLabelText("Effort")).toHaveValue("medium");
 
@@ -50,7 +50,7 @@ describe("AssistantPane", () => {
     );
     await user.selectOptions(screen.getByLabelText("Model"), "opus");
     await user.selectOptions(screen.getByLabelText("Effort"), "xhigh");
-    await user.selectOptions(screen.getByLabelText("Mode"), "diff");
+    await user.click(screen.getByRole("radio", { name: "Diff" }));
     await user.type(screen.getByLabelText("Message"), "Show exact edits");
     await user.click(screen.getByRole("button", { name: "Send to Claude" }));
 
@@ -88,7 +88,7 @@ describe("AssistantPane", () => {
     const user = userEvent.setup();
     const props = renderPane();
 
-    await user.selectOptions(screen.getByLabelText("Mode"), "rewrite");
+    await user.click(screen.getByRole("radio", { name: "Rewrite" }));
     await user.click(screen.getByText("Manual import"));
     await user.type(
       screen.getByLabelText("Import response"),

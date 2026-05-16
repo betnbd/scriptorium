@@ -106,7 +106,7 @@ test("edge 7: AI controls expose provider, model, effort, mode, and message", as
   await expect(page.getByLabel("Provider", { exact: true })).toBeVisible();
   await expect(page.getByLabel("Model", { exact: true })).toBeVisible();
   await expect(page.getByLabel("Effort", { exact: true })).toBeVisible();
-  await expect(page.getByLabel("Mode", { exact: true })).toHaveValue("chat");
+  await expect(page.getByRole("radio", { name: "Chat" })).toBeChecked();
   await expect(page.getByLabel("Message", { exact: true })).toBeVisible();
 });
 

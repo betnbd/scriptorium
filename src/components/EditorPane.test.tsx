@@ -61,6 +61,8 @@ describe("EditorPane", () => {
   });
 
   it("renders an empty state when no file is open", () => {
+    const onOpenFolder = vi.fn();
+
     render(
       <EditorPane
         openFile={null}
@@ -68,10 +70,14 @@ describe("EditorPane", () => {
         isDirty={false}
         onChange={vi.fn()}
         onSave={vi.fn()}
+        onOpenFolder={onOpenFolder}
       />,
     );
 
     expect(screen.getByLabelText("No file open")).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Open manuscript folder" }),
+    ).toBeInTheDocument();
   });
 
   it("renders dirty status and file metadata", () => {
@@ -87,6 +93,7 @@ describe("EditorPane", () => {
 
     expect(screen.getByText("chapter-1.md")).toBeInTheDocument();
     expect(screen.getByText("chapters/chapter-1.md")).toBeInTheDocument();
+    expect(screen.getByText("2 words")).toBeInTheDocument();
     expect(screen.getByText("Unsaved")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Save" })).toBeEnabled();
   });

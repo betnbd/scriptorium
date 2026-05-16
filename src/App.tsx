@@ -132,6 +132,28 @@ export default function App() {
     void refreshProviderStatuses();
   }, []);
 
+  useEffect(() => {
+    function onKeyDown(event: KeyboardEvent) {
+      const key = event.key.toLowerCase();
+      const isCommand = event.metaKey || event.ctrlKey;
+
+      if (!isCommand || key !== "s") {
+        return;
+      }
+
+      event.preventDefault();
+      if (state.isDirty) {
+        void saveFile();
+      }
+    }
+
+    window.addEventListener("keydown", onKeyDown);
+
+    return () => {
+      window.removeEventListener("keydown", onKeyDown);
+    };
+  }, [state.isDirty, state.openFile, state.openMarkdown, state.rootPath]);
+
   async function refreshTree(rootPath = state.rootPath) {
     if (!rootPath) {
       return [];
@@ -708,6 +730,7 @@ export default function App() {
             dispatch({ type: "editorChanged", markdown })
           }
           onSave={saveFile}
+          onOpenFolder={openFolder}
           onSelectionChange={setAssistantSelection}
         />
         {isAssistantOpen ? (

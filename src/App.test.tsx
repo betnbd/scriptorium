@@ -1,4 +1,4 @@
-import { render, screen, within } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import App from "./App";
@@ -139,7 +139,7 @@ describe("App", () => {
     await openAssistant(user);
 
     expect(screen.getByLabelText("AI conversation")).toBeInTheDocument();
-    expect(screen.getByLabelText("Mode")).toHaveValue("chat");
+    expect(screen.getByRole("radio", { name: "Chat" })).toBeChecked();
     expect(screen.queryByText("Terminal-backed conversation")).not.toBeInTheDocument();
   });
 
@@ -322,6 +322,32 @@ describe("App", () => {
     );
   });
 
+  it("saves the current document with the standard save shortcut", async () => {
+    const user = userEvent.setup();
+    const chapter = fileNode("chapter-1.md");
+    mockProjectFolder([chapter]);
+    mockMarkdownReads({
+      "chapter-1.md": "# Chapter 1",
+    });
+
+    render(<App />);
+
+    await user.click(screen.getByRole("button", { name: "Open Folder" }));
+    await user.click(
+      await screen.findByRole("button", { name: "Open chapter-1.md" }),
+    );
+    await user.click(screen.getByRole("button", { name: "Edit Text" }));
+    await user.keyboard("{Control>}s{/Control}");
+
+    await waitFor(() => {
+      expect(tauriApiMock.writeMarkdownFile).toHaveBeenCalledWith(
+        "/novel",
+        "chapter-1.md",
+        expect.stringContaining("Changed lantern."),
+      );
+    });
+  });
+
   it("closes the editor when the open file is deleted", async () => {
     const user = userEvent.setup();
     const chapter = fileNode("chapter-1.md");
@@ -428,7 +454,7 @@ describe("App", () => {
     );
     await openAssistant(user);
     await user.selectOptions(screen.getByLabelText("Provider"), "lm-studio");
-    await user.selectOptions(screen.getByLabelText("Mode"), "rewrite");
+    await user.click(screen.getByRole("radio", { name: "Rewrite" }));
     await user.type(screen.getByLabelText("Message"), "Rewrite locally");
     await user.click(screen.getByRole("button", { name: "Send to LM Studio" }));
 
@@ -666,7 +692,7 @@ describe("App", () => {
     await user.click(screen.getByRole("button", { name: "Open Folder" }));
     await user.click(await screen.findByRole("button", { name: "Open chapter-1.md" }));
     await openAssistant(user);
-    await user.selectOptions(screen.getByLabelText("Mode"), "rewrite");
+    await user.click(screen.getByRole("radio", { name: "Rewrite" }));
     await user.click(screen.getByText("Manual import"));
     await user.clear(screen.getByLabelText("Import response"));
     await user.type(
@@ -698,7 +724,7 @@ describe("App", () => {
       await screen.findByRole("button", { name: "Open chapter-1.md" }),
     );
     await openAssistant(user);
-    await user.selectOptions(screen.getByLabelText("Mode"), "diff");
+    await user.click(screen.getByRole("radio", { name: "Diff" }));
     await user.click(screen.getByText("Manual import"));
     await user.type(
       screen.getByLabelText("Import response"),
@@ -729,7 +755,7 @@ describe("App", () => {
       await screen.findByRole("button", { name: "Open chapter-1.md" }),
     );
     await openAssistant(user);
-    await user.selectOptions(screen.getByLabelText("Mode"), "suggestions");
+    await user.click(screen.getByRole("radio", { name: "Suggest" }));
     await user.click(screen.getByText("Manual import"));
     await user.type(screen.getByLabelText("Import response"), "- Raise the stakes.");
     await user.click(screen.getByRole("button", { name: "Import" }));
@@ -760,7 +786,7 @@ describe("App", () => {
       await screen.findByRole("button", { name: "Open chapter-1.md" }),
     );
     await openAssistant(user);
-    await user.selectOptions(screen.getByLabelText("Mode"), "diff");
+    await user.click(screen.getByRole("radio", { name: "Diff" }));
     await user.click(screen.getByText("Manual import"));
     await user.type(
       screen.getByLabelText("Import response"),

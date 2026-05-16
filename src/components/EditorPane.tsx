@@ -1,6 +1,7 @@
 import { Markdown } from "@tiptap/markdown";
 import { EditorContent, useEditor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
+import { FolderOpen } from "lucide-react";
 import type { ChangeEvent, ReactNode, SyntheticEvent } from "react";
 import { useEffect, useRef } from "react";
 
@@ -10,6 +11,7 @@ interface EditorPaneProps {
   isDirty: boolean;
   onChange: (markdown: string) => void;
   onSave: () => void;
+  onOpenFolder?: () => void;
   onSelectionChange?: (markdown: string | null) => void;
 }
 
@@ -21,11 +23,23 @@ export function EditorPane({
   isDirty,
   onChange,
   onSave,
+  onOpenFolder,
   onSelectionChange,
 }: EditorPaneProps) {
   if (!openFile) {
     return (
-      <section className="editor-pane editor-pane-empty" aria-label="No file open" />
+      <section className="editor-pane editor-pane-empty" aria-label="No file open">
+        {onOpenFolder ? (
+          <button
+            type="button"
+            aria-label="Open manuscript folder"
+            onClick={onOpenFolder}
+          >
+            <FolderOpen aria-hidden="true" size={16} />
+            Open Folder
+          </button>
+        ) : null}
+      </section>
     );
   }
 
@@ -122,7 +136,12 @@ function RichMarkdownEditor({
 
   return (
     <section className="editor-pane">
-      <EditorHeader openFile={openFile} isDirty={isDirty} onSave={onSave} />
+      <EditorHeader
+        markdown={markdown}
+        openFile={openFile}
+        isDirty={isDirty}
+        onSave={onSave}
+      />
       <EditorContent editor={editor} className="manuscript-editor" />
     </section>
   );
@@ -150,7 +169,12 @@ function LargeMarkdownEditor({
 
   return (
     <section className="editor-pane">
-      <EditorHeader openFile={openFile} isDirty={isDirty} onSave={onSave}>
+      <EditorHeader
+        markdown={markdown}
+        openFile={openFile}
+        isDirty={isDirty}
+        onSave={onSave}
+      >
         <span className="status-large">Large file mode</span>
       </EditorHeader>
       <textarea
@@ -170,15 +194,19 @@ function LargeMarkdownEditor({
 
 function EditorHeader({
   openFile,
+  markdown,
   isDirty,
   onSave,
   children,
 }: {
   openFile: NonNullable<EditorPaneProps["openFile"]>;
+  markdown: string;
   isDirty: boolean;
   onSave: () => void;
   children?: ReactNode;
 }) {
+  const wordCount = countWords(markdown);
+
   return (
     <header className="editor-header">
       <div>
@@ -187,6 +215,7 @@ function EditorHeader({
       </div>
       <div className="editor-actions">
         {children}
+        <span className="status-word-count">{formatWordCount(wordCount)}</span>
         <span className={isDirty ? "status-dirty" : "status-saved"}>
           {isDirty ? "Unsaved" : "Saved"}
         </span>
@@ -200,4 +229,12 @@ function EditorHeader({
 
 function shouldUseLargeFileEditor(markdown: string): boolean {
   return markdown.length > LARGE_MARKDOWN_EDITOR_LIMIT;
+}
+
+function countWords(markdown: string): number {
+  return markdown.match(/[\p{L}\p{N}]+(?:['-][\p{L}\p{N}]+)*/gu)?.length ?? 0;
+}
+
+function formatWordCount(count: number): string {
+  return count === 1 ? "1 word" : `${count.toLocaleString()} words`;
 }

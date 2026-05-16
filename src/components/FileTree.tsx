@@ -1,4 +1,5 @@
 import {
+  ChevronDown,
   ChevronRight,
   Edit3,
   File,
@@ -9,6 +10,7 @@ import {
   Plus,
   Trash2,
 } from "lucide-react";
+import { useEffect, useState } from "react";
 import type { FileNode } from "../types";
 
 export interface FileTreeProps {
@@ -36,6 +38,28 @@ export function FileTree({
   onMove,
   activePath,
 }: FileTreeProps) {
+  const [expandedPaths, setExpandedPaths] = useState<Set<string>>(
+    () => new Set(collectDirectoryPaths(nodes)),
+  );
+
+  useEffect(() => {
+    setExpandedPaths(new Set(collectDirectoryPaths(nodes)));
+  }, [nodes, rootPath]);
+
+  function toggleDirectory(path: string) {
+    setExpandedPaths((current) => {
+      const next = new Set(current);
+
+      if (next.has(path)) {
+        next.delete(path);
+      } else {
+        next.add(path);
+      }
+
+      return next;
+    });
+  }
+
   if (!rootPath) {
     return (
       <section className="file-tree file-tree-empty">
@@ -96,6 +120,8 @@ export function FileTree({
             onDelete={onDelete}
             onMove={onMove}
             activePath={activePath}
+            expandedPaths={expandedPaths}
+            onToggleDirectory={toggleDirectory}
           />
         )}
       </div>
@@ -129,6 +155,8 @@ interface FileTreeNodesProps
   > {
   nodes: FileNode[];
   depth: number;
+  expandedPaths: Set<string>;
+  onToggleDirectory: (path: string) => void;
 }
 
 function FileTreeNodes({ nodes, depth, ...props }: FileTreeNodesProps) {
@@ -161,10 +189,13 @@ function FileTreeNode({
   onDelete,
   onMove,
   activePath,
+  expandedPaths,
+  onToggleDirectory,
 }: FileTreeNodeProps) {
   const isDirectory = node.kind === "directory";
   const children = node.children ?? [];
   const isActive = activePath === node.relativePath;
+  const isExpanded = isDirectory && expandedPaths.has(node.relativePath);
   const rowClassName = [
     "file-tree-row",
     isDirectory ? "is-directory" : "is-file",
@@ -177,9 +208,25 @@ function FileTreeNode({
   return (
     <li>
       <div className={rowClassName} style={{ paddingLeft: 8 + depth * 16 }}>
-        <span className="file-tree-disclosure" aria-hidden="true">
-          {isDirectory ? <ChevronRight size={14} /> : null}
-        </span>
+        {isDirectory ? (
+          <button
+            type="button"
+            aria-label={`${isExpanded ? "Collapse" : "Expand"} folder ${
+              node.name
+            }`}
+            className="file-tree-disclosure"
+            onClick={() => onToggleDirectory(node.relativePath)}
+            title={isExpanded ? "Collapse" : "Expand"}
+          >
+            {isExpanded ? (
+              <ChevronDown aria-hidden="true" size={14} />
+            ) : (
+              <ChevronRight aria-hidden="true" size={14} />
+            )}
+          </button>
+        ) : (
+          <span className="file-tree-disclosure" aria-hidden="true" />
+        )}
         {isDirectory ? (
           <Folder aria-hidden="true" size={16} />
         ) : node.isMarkdown ? (
@@ -187,7 +234,16 @@ function FileTreeNode({
         ) : (
           <File aria-hidden="true" size={16} />
         )}
-        {node.isMarkdown ? (
+        {isDirectory ? (
+          <button
+            type="button"
+            className="file-tree-name file-tree-open"
+            aria-label={`${isExpanded ? "Collapse" : "Expand"} ${node.name}`}
+            onClick={() => onToggleDirectory(node.relativePath)}
+          >
+            {node.name}
+          </button>
+        ) : node.isMarkdown ? (
           <button
             type="button"
             className="file-tree-name file-tree-open"
@@ -248,7 +304,7 @@ function FileTreeNode({
           </button>
         </div>
       </div>
-      {isDirectory && children.length > 0 ? (
+      {isDirectory && isExpanded && children.length > 0 ? (
         <FileTreeNodes
           nodes={children}
           depth={depth + 1}
@@ -259,8 +315,20 @@ function FileTreeNode({
           onDelete={onDelete}
           onMove={onMove}
           activePath={activePath}
+          expandedPaths={expandedPaths}
+          onToggleDirectory={onToggleDirectory}
         />
       ) : null}
     </li>
   );
+}
+
+function collectDirectoryPaths(nodes: FileNode[]): string[] {
+  return nodes.flatMap((node) => {
+    if (node.kind !== "directory") {
+      return [];
+    }
+
+    return [node.relativePath, ...collectDirectoryPaths(node.children ?? [])];
+  });
 }
