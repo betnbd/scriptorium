@@ -1,9 +1,8 @@
 import type { AssistantMode } from "../types";
 
 export type ParsedAssistantResult =
-  | { kind: "rewrite"; markdown: string }
-  | { kind: "diff"; patch: string }
-  | { kind: "suggestions"; suggestions: string };
+  | { kind: "edit"; markdown: string }
+  | { kind: "chat"; content: string };
 
 export function parseAssistantResponse(
   mode: AssistantMode,
@@ -11,15 +10,19 @@ export function parseAssistantResponse(
 ): ParsedAssistantResult {
   const content = stripMarkdownFence(response.trim());
 
-  if (mode === "rewrite") {
-    return { kind: "rewrite", markdown: content };
+  if (mode === "edit") {
+    return { kind: "edit", markdown: extractTaggedEdit(content) };
   }
 
-  if (mode === "diff") {
-    return { kind: "diff", patch: content };
-  }
+  return { kind: "chat", content };
+}
 
-  return { kind: "suggestions", suggestions: content };
+function extractTaggedEdit(value: string): string {
+  const match = value.match(
+    /<scriptorium_(?:edit|rewrite)>\s*([\s\S]*?)\s*<\/scriptorium_(?:edit|rewrite)>/i,
+  );
+
+  return match ? stripMarkdownFence(match[1].trim()) : value;
 }
 
 function stripMarkdownFence(value: string): string {

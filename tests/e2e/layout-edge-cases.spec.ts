@@ -107,6 +107,7 @@ test("edge 7: AI controls expose provider, model, effort, mode, and message", as
   await expect(page.getByLabel("Model", { exact: true })).toBeVisible();
   await expect(page.getByLabel("Effort", { exact: true })).toBeVisible();
   await expect(page.getByRole("radio", { name: "Chat" })).toBeChecked();
+  await expect(page.getByRole("radio", { name: "Edit" })).toBeVisible();
   await expect(page.getByLabel("Message", { exact: true })).toBeVisible();
 });
 
@@ -120,10 +121,10 @@ test("edge 8: LM Studio switches to a model text input and no effort selector", 
   await expect(page.getByRole("button", { name: "Open a file to send" })).toBeVisible();
 });
 
-test("edge 9: manual import expands inside the AI pane without hiding controls", async ({
+test("edge 9: paste response expands inside the AI pane without hiding controls", async ({
   page,
 }) => {
-  await page.getByText("Manual import").click();
+  await page.getByText("Paste response").click();
 
   await expect(page.getByLabel("Import response", { exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "Import" })).toBeVisible();

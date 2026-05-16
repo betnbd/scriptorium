@@ -35,12 +35,12 @@ For very large Markdown files, **Visual** mode becomes a read-only rendered prev
 
 Modes:
 
-- **Chat**: asks a question without changing the file.
-- **Rewrite**: prepares a full replacement for review.
-- **Diff**: prepares proposed edits for review.
-- **Suggest**: returns advice without changing the file.
+- **Chat**: discusses the open file and can suggest changes without touching the document.
+- **Edit**: stages revised Markdown directly in the editor.
 
-Rewrite and diff results show **Apply edits** and **Discard** before the document changes.
+Edit results are staged in the editor immediately and marked as **AI edit staged** beside the save status. Use **Show diff** to inspect the local before/after change, **Keep edits** to dismiss the review bar, or **Reject edits** to restore the previous text. Save manually when you want to write staged changes to disk.
+
+Use **Paste response** only when you need to manually import an assistant response.
 
 ## Provider Setup
 

@@ -26,7 +26,7 @@ export type ProviderId =
   | "openai-subscription"
   | "anthropic-subscription"
   | "lm-studio";
-export type AssistantMode = "chat" | "rewrite" | "diff" | "suggestions";
+export type AssistantMode = "chat" | "edit";
 export type ThemeId =
   | "paper"
   | "catppuccin-latte"
@@ -48,8 +48,9 @@ export interface AssistantMessage {
 }
 
 export interface AssistantPendingEdit {
-  mode: Extract<AssistantMode, "rewrite" | "diff">;
+  mode: "edit";
   response: string;
+  previousMarkdown: string;
   nextMarkdown: string;
 }
 

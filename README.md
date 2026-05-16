@@ -10,8 +10,8 @@ Scriptorium is a local-first desktop writing workspace for drafting and revising
 - Save explicitly; manuscript changes are not autosaved.
 - Choose lightweight themes: Paper, Catppuccin, Gruvbox, Dracula, Nord, Solarized, Tokyo Night, Rose Pine, and Everforest.
 - Use OpenAI via a local Codex login, Anthropic via Claude Code, or LM Studio on localhost.
-- Ask for chat responses, suggestions, proposed diffs, or rewrites.
-- Review rewrite/diff output before applying it to the open file.
+- Chat about the open file or ask for suggested changes without touching the document.
+- Stage AI edits in the open file, inspect a local diff, then keep or reject them before manually saving.
 
 ## Privacy
 

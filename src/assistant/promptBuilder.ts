@@ -12,9 +12,7 @@ interface PromptInput {
 
 const modeLabels: Record<AssistantMode, string> = {
   chat: "Conversation",
-  rewrite: "Full rewrite",
-  diff: "Proposed diff edits",
-  suggestions: "Suggestions only",
+  edit: "Direct edit",
 };
 
 export function buildAssistantPrompt(input: PromptInput): string {
@@ -94,26 +92,17 @@ function outputInstructions(mode: AssistantMode): string {
   if (mode === "chat") {
     return [
       "Respond conversationally to the user's message.",
-      "Do not rewrite or edit the target Markdown unless the user explicitly asks for text to paste.",
-    ].join("\n");
-  }
-
-  if (mode === "rewrite") {
-    return [
-      "Return only the rewritten Markdown for the target.",
-      "Preserve Markdown structure unless the instruction asks otherwise.",
-    ].join("\n");
-  }
-
-  if (mode === "diff") {
-    return [
-      "Return a unified diff against the target Markdown.",
-      "Keep edits minimal and anchored to the supplied target.",
+      "You may suggest edits in the conversation, but do not rewrite or edit the target Markdown.",
     ].join("\n");
   }
 
   return [
-    "Return concise suggestions.",
-    "Do not rewrite the passage unless asked.",
+    "Return only the rewritten Markdown for the target inside <scriptorium_edit> tags.",
+    "Do not put comments, explanations, summaries, or review notes inside those tags.",
+    "Preserve Markdown structure unless the instruction asks otherwise.",
+    "Format:",
+    "<scriptorium_edit>",
+    "Rewritten Markdown goes here.",
+    "</scriptorium_edit>",
   ].join("\n");
 }

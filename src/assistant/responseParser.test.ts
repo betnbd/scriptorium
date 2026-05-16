@@ -2,46 +2,65 @@ import { describe, expect, it } from "vitest";
 import { parseAssistantResponse } from "./responseParser";
 
 describe("parseAssistantResponse", () => {
-  it("parses rewrite response as markdown", () => {
-    const result = parseAssistantResponse("rewrite", "# Revised\n\nText.");
+  it("parses edit response as markdown", () => {
+    const result = parseAssistantResponse("edit", "# Revised\n\nText.");
 
-    expect(result).toEqual({ kind: "rewrite", markdown: "# Revised\n\nText." });
+    expect(result).toEqual({ kind: "edit", markdown: "# Revised\n\nText." });
   });
 
-  it("strips a whole markdown fence from a rewrite response", () => {
+  it("strips a whole markdown fence from an edit response", () => {
     const result = parseAssistantResponse(
-      "rewrite",
+      "edit",
       "```markdown\n# Revised\n\nText.\n```",
     );
 
-    expect(result).toEqual({ kind: "rewrite", markdown: "# Revised\n\nText." });
+    expect(result).toEqual({ kind: "edit", markdown: "# Revised\n\nText." });
   });
 
-  it("parses diff response as a patch and strips a whole diff fence", () => {
+  it("extracts tagged edit markdown without surrounding assistant commentary", () => {
     const result = parseAssistantResponse(
-      "diff",
-      "```diff\n--- a/chapter.md\n+++ b/chapter.md\n@@ -1 +1 @@\n-Old\n+New\n```",
+      "edit",
+      [
+        "I tightened the scene and preserved the structure.",
+        "",
+        "<scriptorium_edit>",
+        "## Chapter One",
+        "",
+        "Revised text.",
+        "</scriptorium_edit>",
+        "",
+        "Everything else is unchanged.",
+      ].join("\n"),
     );
 
     expect(result).toEqual({
-      kind: "diff",
-      patch: "--- a/chapter.md\n+++ b/chapter.md\n@@ -1 +1 @@\n-Old\n+New",
+      kind: "edit",
+      markdown: "## Chapter One\n\nRevised text.",
     });
   });
 
-  it("parses suggestions as notes", () => {
-    const result = parseAssistantResponse("suggestions", "- Raise the stakes.");
+  it("accepts the older rewrite tag for in-flight responses", () => {
+    const result = parseAssistantResponse(
+      "edit",
+      "<scriptorium_rewrite>\n# Revised\n</scriptorium_rewrite>",
+    );
+
+    expect(result).toEqual({ kind: "edit", markdown: "# Revised" });
+  });
+
+  it("parses chat as conversational content", () => {
+    const result = parseAssistantResponse("chat", "- Raise the stakes.");
 
     expect(result).toEqual({
-      kind: "suggestions",
-      suggestions: "- Raise the stakes.",
+      kind: "chat",
+      content: "- Raise the stakes.",
     });
   });
 
   it("does not strip an inline code fence inside a larger response", () => {
     const response = "Before\n\n```markdown\n# Title\n```\n\nAfter";
-    const result = parseAssistantResponse("rewrite", response);
+    const result = parseAssistantResponse("edit", response);
 
-    expect(result).toEqual({ kind: "rewrite", markdown: response });
+    expect(result).toEqual({ kind: "edit", markdown: response });
   });
 });

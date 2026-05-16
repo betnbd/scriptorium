@@ -32,14 +32,18 @@ vi.mock("./components/EditorPane", () => ({
   EditorPane: ({
     openFile,
     markdown,
+    mode,
     isDirty,
+    isAiEditStaged,
     onChange,
     onSave,
     onSelectionChange,
   }: {
     openFile: { relativePath: string; name: string } | null;
     markdown: string;
+    mode: "visual" | "markdown";
     isDirty: boolean;
+    isAiEditStaged?: boolean;
     onChange: (markdown: string) => void;
     onSave: () => void;
     onSelectionChange?: (markdown: string | null) => void;
@@ -48,6 +52,8 @@ vi.mock("./components/EditorPane", () => ({
       <section className="editor-pane">
         <h1>{openFile.name}</h1>
         <p>{openFile.relativePath}</p>
+        <span>Mode: {mode}</span>
+        {isAiEditStaged ? <span>AI edit staged</span> : null}
         <span>{isDirty ? "Unsaved" : "Saved"}</span>
         <pre aria-label="Current markdown">{markdown}</pre>
         <button
@@ -489,11 +495,11 @@ describe("App", () => {
     );
     expect(screen.getByText("Make this more tense")).toBeInTheDocument();
     expect(
-      screen.queryByText("Applied rewrite to the open file."),
+      screen.queryByText("Kept edit in the open file."),
     ).not.toBeInTheDocument();
   });
 
-  it("queues LM Studio rewrites for review before applying them", async () => {
+  it("stages LM Studio edits in the editor until the user keeps them", async () => {
     const user = userEvent.setup();
     const chapter = fileNode("chapter-1.md");
     const notes = fileNode("notes.md");
@@ -503,7 +509,17 @@ describe("App", () => {
       "notes.md": "# Notes\n\nThe house is haunted.",
     });
     tauriApiMock.sendLmStudioRequest.mockResolvedValueOnce(
-      "# Chapter 1\n\nNew local text.",
+      [
+        "I tightened the chapter.",
+        "",
+        "<scriptorium_edit>",
+        "# Chapter 1",
+        "",
+        "New local text.",
+        "</scriptorium_edit>",
+        "",
+        "The structure is preserved.",
+      ].join("\n"),
     );
 
     render(<App />);
@@ -514,14 +530,14 @@ describe("App", () => {
     );
     await openAssistant(user);
     await user.selectOptions(screen.getByLabelText("Provider"), "lm-studio");
-    await user.click(screen.getByRole("radio", { name: "Rewrite" }));
-    await user.type(screen.getByLabelText("Message"), "Rewrite locally");
+    await user.click(screen.getByRole("radio", { name: "Edit" }));
+    await user.type(screen.getByLabelText("Message"), "Revise locally");
     await user.click(screen.getByRole("button", { name: "Send to LM Studio" }));
 
     expect(tauriApiMock.sendLmStudioRequest).toHaveBeenCalledWith(
       "http://127.0.0.1:1234/v1",
       "local-model",
-      expect.stringContaining("Rewrite locally"),
+      expect.stringContaining("Revise locally"),
     );
     expect(tauriApiMock.sendLmStudioRequest).toHaveBeenCalledWith(
       "http://127.0.0.1:1234/v1",
@@ -529,18 +545,23 @@ describe("App", () => {
       expect.stringContaining("Old text."),
     );
     expect(tauriApiMock.copyText).not.toHaveBeenCalled();
-    expect(screen.getByLabelText("Current markdown")).toHaveTextContent(
-      "# Chapter 1 Old text.",
-    );
-    expect(screen.getByText("Rewrite ready")).toBeInTheDocument();
+    expect(screen.getByText("Edit ready")).toBeInTheDocument();
     expect(
-      screen.getByText("Review the rewrite before applying it."),
-    ).toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "Apply edits" }));
+      screen.getAllByText("Review the staged edit before saving.").length,
+    ).toBeGreaterThan(0);
     expect(screen.getByLabelText("Current markdown")).toHaveTextContent(
       "# Chapter 1 New local text.",
     );
-    expect(screen.getByText("Applied rewrite to the open file.")).toBeInTheDocument();
+    expect(screen.getByText("Mode: visual")).toBeInTheDocument();
+    expect(screen.queryByLabelText("Current markdown")).not.toHaveTextContent(
+      "I tightened the chapter.",
+    );
+    expect(screen.queryByLabelText("Current markdown")).not.toHaveTextContent(
+      "The structure is preserved.",
+    );
+    expect(tauriApiMock.writeMarkdownFile).not.toHaveBeenCalled();
+    await user.click(screen.getByRole("button", { name: "Keep edits" }));
+    expect(screen.getByText("Kept edit in the open file. Save manually to write it to disk.")).toBeInTheDocument();
   });
 
   it("keeps chat responses when the user keeps writing while the agent works", async () => {
@@ -609,8 +630,40 @@ describe("App", () => {
       "# Scene Different text.",
     );
     expect(
-      screen.queryByText("Applied rewrite to the open file."),
+      screen.queryByText("Kept edit in the open file."),
     ).not.toBeInTheDocument();
+  });
+
+  it("keeps provider and model choices when switching files in one assistant session", async () => {
+    const user = userEvent.setup();
+    const chapter = fileNode("chapter-1.md");
+    const scene = fileNode("scene.md");
+    mockProjectFolder([chapter, scene]);
+    mockMarkdownReads({
+      "chapter-1.md": "# Chapter 1\n\nOld text.",
+      "scene.md": "# Scene\n\nDifferent text.",
+    });
+
+    render(<App />);
+
+    await user.click(screen.getByRole("button", { name: "Open Folder" }));
+    await user.click(
+      await screen.findByRole("button", { name: "Open chapter-1.md" }),
+    );
+    await openAssistant(user);
+    await user.selectOptions(
+      screen.getByLabelText("Provider"),
+      "anthropic-subscription",
+    );
+    await user.selectOptions(screen.getByLabelText("Model"), "opus");
+    await user.selectOptions(screen.getByLabelText("Effort"), "xhigh");
+    await user.click(await screen.findByRole("button", { name: "Open scene.md" }));
+
+    expect(screen.getByLabelText("Provider")).toHaveValue(
+      "anthropic-subscription",
+    );
+    expect(screen.getByLabelText("Model")).toHaveValue("opus");
+    expect(screen.getByLabelText("Effort")).toHaveValue("xhigh");
   });
 
   it("shows an error banner when LM Studio requests fail", async () => {
@@ -778,7 +831,7 @@ describe("App", () => {
     ).toBeInTheDocument();
   });
 
-  it("imports a rewrite for review before changing the editor", async () => {
+  it("imports an edit into the editor and can reject it before saving", async () => {
     const user = userEvent.setup();
     const chapter = fileNode("chapter-1.md");
     mockProjectFolder([chapter]);
@@ -791,8 +844,8 @@ describe("App", () => {
     await user.click(screen.getByRole("button", { name: "Open Folder" }));
     await user.click(await screen.findByRole("button", { name: "Open chapter-1.md" }));
     await openAssistant(user);
-    await user.click(screen.getByRole("radio", { name: "Rewrite" }));
-    await user.click(screen.getByText("Manual import"));
+    await user.click(screen.getByRole("radio", { name: "Edit" }));
+    await user.click(screen.getByText("Paste response"));
     await user.clear(screen.getByLabelText("Import response"));
     await user.type(
       screen.getByLabelText("Import response"),
@@ -800,20 +853,22 @@ describe("App", () => {
     );
     await user.click(screen.getByRole("button", { name: "Import" }));
 
-    expect(screen.getByLabelText("Current markdown")).toHaveTextContent(
-      "# Chapter 1 Old text.",
-    );
-    expect(screen.getByText("Rewrite ready")).toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "Apply edits" }));
+    expect(screen.getByText("Edit ready")).toBeInTheDocument();
+    expect(screen.getByText("AI edit staged")).toBeInTheDocument();
     expect(screen.getByLabelText("Current markdown")).toHaveTextContent(
       "# Chapter 1 New text.",
     );
     expect(screen.getByText("Unsaved")).toBeInTheDocument();
-    expect(screen.getByText("Applied rewrite to the open file.")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Reject edits" }));
+    expect(screen.getByLabelText("Current markdown")).toHaveTextContent(
+      "# Chapter 1 Old text.",
+    );
+    expect(screen.getByText("Saved")).toBeInTheDocument();
+    expect(screen.getByText("Rejected edit and restored the previous text.")).toBeInTheDocument();
     expect(tauriApiMock.writeMarkdownFile).not.toHaveBeenCalled();
   });
 
-  it("imports a unified diff for review before changing the editor", async () => {
+  it("imports an edit into the editor and can keep it before saving", async () => {
     const user = userEvent.setup();
     const chapter = fileNode("chapter-1.md");
     mockProjectFolder([chapter]);
@@ -828,28 +883,26 @@ describe("App", () => {
       await screen.findByRole("button", { name: "Open chapter-1.md" }),
     );
     await openAssistant(user);
-    await user.click(screen.getByRole("radio", { name: "Diff" }));
-    await user.click(screen.getByText("Manual import"));
+    await user.click(screen.getByRole("radio", { name: "Edit" }));
+    await user.click(screen.getByText("Paste response"));
     await user.type(
       screen.getByLabelText("Import response"),
-      "```diff\n--- a/chapter-1.md\n+++ b/chapter-1.md\n@@ -1,3 +1,3 @@\n # Chapter 1\n \n-Old text.\n+New text.\n```",
+      "# Chapter 1\n\nNew text.",
     );
     await user.click(screen.getByRole("button", { name: "Import" }));
 
-    expect(screen.getByLabelText("Current markdown")).toHaveTextContent(
-      "# Chapter 1 Old text.",
-    );
-    expect(screen.getByText("Proposed edits ready")).toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "Apply edits" }));
+    expect(screen.getByText("Edit ready")).toBeInTheDocument();
+    expect(screen.getByText("AI edit staged")).toBeInTheDocument();
     expect(screen.getByLabelText("Current markdown")).toHaveTextContent(
       "# Chapter 1 New text.",
     );
     expect(screen.getByText("Unsaved")).toBeInTheDocument();
-    expect(screen.getByText("Applied proposed edits to the open file.")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Keep edits" }));
+    expect(screen.getByText("Kept edit in the open file. Save manually to write it to disk.")).toBeInTheDocument();
     expect(tauriApiMock.writeMarkdownFile).not.toHaveBeenCalled();
   });
 
-  it("imports suggestions into assistant history without changing the document", async () => {
+  it("imports chat suggestions into assistant history without changing the document", async () => {
     const user = userEvent.setup();
     const chapter = fileNode("chapter-1.md");
     mockProjectFolder([chapter]);
@@ -864,8 +917,7 @@ describe("App", () => {
       await screen.findByRole("button", { name: "Open chapter-1.md" }),
     );
     await openAssistant(user);
-    await user.click(screen.getByRole("radio", { name: "Suggest" }));
-    await user.click(screen.getByText("Manual import"));
+    await user.click(screen.getByText("Paste response"));
     await user.type(screen.getByLabelText("Import response"), "- Raise the stakes.");
     await user.click(screen.getByRole("button", { name: "Import" }));
 
@@ -880,39 +932,6 @@ describe("App", () => {
     ).toBeInTheDocument();
   });
 
-  it("shows an error banner and keeps the document unchanged when an imported diff fails", async () => {
-    const user = userEvent.setup();
-    const chapter = fileNode("chapter-1.md");
-    mockProjectFolder([chapter]);
-    mockMarkdownReads({
-      "chapter-1.md": "# Chapter 1\n\nOld text.",
-    });
-
-    render(<App />);
-
-    await user.click(screen.getByRole("button", { name: "Open Folder" }));
-    await user.click(
-      await screen.findByRole("button", { name: "Open chapter-1.md" }),
-    );
-    await openAssistant(user);
-    await user.click(screen.getByRole("radio", { name: "Diff" }));
-    await user.click(screen.getByText("Manual import"));
-    await user.type(
-      screen.getByLabelText("Import response"),
-      "```diff\n--- a/chapter-1.md\n+++ b/chapter-1.md\n@@ -1,3 +1,3 @@\n # Chapter 1\n \n-Missing text.\n+New text.\n```",
-    );
-    await user.click(screen.getByRole("button", { name: "Import" }));
-
-    expect(
-      await screen.findByText("Diff could not be applied to the current document."),
-    ).toBeInTheDocument();
-    expect(screen.getByLabelText("Current markdown")).toHaveTextContent(
-      "# Chapter 1 Old text.",
-    );
-    expect(
-      screen.queryByText("Applied proposed edits to the open file."),
-    ).not.toBeInTheDocument();
-  });
 });
 
 function fileNode(relativePath: string): FileNode {

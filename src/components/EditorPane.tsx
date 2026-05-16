@@ -48,6 +48,7 @@ interface EditorPaneProps {
   markdown: string;
   mode: EditorMode;
   isDirty: boolean;
+  isAiEditStaged?: boolean;
   onChange: (markdown: string) => void;
   onSave: () => void;
   onOpenFolder?: () => void;
@@ -63,6 +64,7 @@ export const EditorPane = forwardRef<EditorPaneHandle, EditorPaneProps>(function
     markdown,
     mode,
     isDirty,
+    isAiEditStaged = false,
     onChange,
     onSave,
     onOpenFolder,
@@ -96,6 +98,7 @@ export const EditorPane = forwardRef<EditorPaneHandle, EditorPaneProps>(function
         markdown={markdown}
         mode={mode}
         isDirty={isDirty}
+        isAiEditStaged={isAiEditStaged}
         onChange={onChange}
         onSave={onSave}
         onModeChange={onModeChange}
@@ -112,6 +115,7 @@ export const EditorPane = forwardRef<EditorPaneHandle, EditorPaneProps>(function
         markdown={markdown}
         mode={mode}
         isDirty={isDirty}
+        isAiEditStaged={isAiEditStaged}
         onChange={onChange}
         onSave={onSave}
         onModeChange={onModeChange}
@@ -127,6 +131,7 @@ export const EditorPane = forwardRef<EditorPaneHandle, EditorPaneProps>(function
       markdown={markdown}
       mode={mode}
       isDirty={isDirty}
+      isAiEditStaged={isAiEditStaged}
       onChange={onChange}
       onSave={onSave}
       onModeChange={onModeChange}
@@ -142,6 +147,7 @@ const RichMarkdownEditor = forwardRef<EditorPaneHandle, EditorPaneProps & {
   markdown,
   mode,
   isDirty,
+  isAiEditStaged,
   onChange,
   onSave,
   onModeChange,
@@ -224,6 +230,7 @@ const RichMarkdownEditor = forwardRef<EditorPaneHandle, EditorPaneProps & {
         mode={mode}
         openFile={openFile}
         isDirty={isDirty}
+        isAiEditStaged={isAiEditStaged}
         onSave={onSave}
         onModeChange={onModeChange}
       />
@@ -244,6 +251,7 @@ const SourceMarkdownEditor = forwardRef<
     markdown,
     mode,
     isDirty,
+    isAiEditStaged,
     onChange,
     onSave,
     onModeChange,
@@ -292,6 +300,7 @@ const SourceMarkdownEditor = forwardRef<
         mode={mode}
         openFile={openFile}
         isDirty={isDirty}
+        isAiEditStaged={isAiEditStaged}
         onSave={onSave}
         onModeChange={onModeChange}
       >
@@ -341,6 +350,7 @@ const LargeVisualPreview = forwardRef<
     markdown,
     mode,
     isDirty,
+    isAiEditStaged,
     onSave,
     onModeChange,
     onSelectionChange,
@@ -382,6 +392,7 @@ const LargeVisualPreview = forwardRef<
         mode={mode}
         openFile={openFile}
         isDirty={isDirty}
+        isAiEditStaged={isAiEditStaged}
         onSave={onSave}
         onModeChange={onModeChange}
       >
@@ -406,6 +417,7 @@ function EditorHeader({
   markdown,
   mode,
   isDirty,
+  isAiEditStaged,
   onSave,
   onModeChange,
   children,
@@ -414,6 +426,7 @@ function EditorHeader({
   markdown: string;
   mode: EditorMode;
   isDirty: boolean;
+  isAiEditStaged?: boolean;
   onSave: () => void;
   onModeChange: (mode: EditorMode) => void;
   children?: ReactNode;
@@ -451,6 +464,9 @@ function EditorHeader({
         </div>
         {children}
         <span className="status-word-count">{formatWordCount(wordCount)}</span>
+        {isAiEditStaged ? (
+          <span className="status-ai-staged">AI edit staged</span>
+        ) : null}
         <span className={isDirty ? "status-dirty" : "status-saved"}>
           {isDirty ? "Unsaved" : "Saved"}
         </span>

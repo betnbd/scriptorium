@@ -11,6 +11,7 @@ import {
   effortOptionsForProvider,
   modelOptionsForProvider,
 } from "../assistant/providerOptions";
+import { formatLocalDiff } from "../assistant/localDiff";
 
 export interface AssistantRequest {
   provider: ProviderId;
@@ -36,7 +37,7 @@ interface AssistantPaneProps {
   onSubmit: (request: AssistantRequest) => void;
   onImport: (response: string, mode: AssistantMode) => void;
   onApplyPendingEdit?: () => void;
-  onDiscardPendingEdit?: () => void;
+  onRejectPendingEdit?: () => void;
   onClose: () => void;
 }
 
@@ -51,7 +52,7 @@ export function AssistantPane({
   onSubmit,
   onImport,
   onApplyPendingEdit,
-  onDiscardPendingEdit,
+  onRejectPendingEdit,
   onClose,
 }: AssistantPaneProps) {
   const [provider, setProvider] = useState<ProviderId>(settings.defaultProvider);
@@ -65,6 +66,7 @@ export function AssistantPane({
   const [lmStudioModel, setLmStudioModel] = useState(settings.lmStudioModel);
   const [instruction, setInstruction] = useState("");
   const [importText, setImportText] = useState("");
+  const [showPendingDiff, setShowPendingDiff] = useState(false);
   const [runningElapsedSeconds, setRunningElapsedSeconds] = useState(0);
   const historyRef = useRef<HTMLDivElement | null>(null);
   const providerStatus =
@@ -73,8 +75,14 @@ export function AssistantPane({
     providerStatus !== null &&
     providerStatus !== undefined &&
     (!providerStatus.installed || !providerStatus.authenticated);
+  const isEditBlockedByPendingEdit = mode === "edit" && Boolean(pendingEdit);
   const sendDisabled =
-    isRunning || !canSubmit || isProviderBlocked || !instruction.trim();
+    isRunning ||
+    !canSubmit ||
+    isProviderBlocked ||
+    isEditBlockedByPendingEdit ||
+    !instruction.trim();
+  const importDisabled = isEditBlockedByPendingEdit;
   const assistantLabel = assistantDisplayLabel(provider);
   const selectedModel = modelForProvider({
     provider,
@@ -119,6 +127,10 @@ export function AssistantPane({
 
     return () => window.clearInterval(interval);
   }, [isRunning]);
+
+  useEffect(() => {
+    setShowPendingDiff(false);
+  }, [pendingEdit]);
 
   function submitMessage() {
     if (sendDisabled) {
@@ -187,21 +199,33 @@ export function AssistantPane({
       </div>
 
       {pendingEdit ? (
-        <section className="assistant-pending-edit" aria-label="Pending assistant edit">
+        <section className="assistant-pending-edit" aria-label="Staged AI edit">
           <div>
-            <strong>
-              {pendingEdit.mode === "diff" ? "Proposed edits" : "Rewrite"} ready
-            </strong>
-            <span>Review the response above before changing the open file.</span>
+            <strong>Edit ready</strong>
+            <span>Review the staged edit before saving.</span>
           </div>
           <div className="assistant-pending-actions">
-            <button type="button" onClick={onDiscardPendingEdit}>
-              Discard
+            <button
+              type="button"
+              onClick={() => setShowPendingDiff((isVisible) => !isVisible)}
+            >
+              {showPendingDiff ? "Hide diff" : "Show diff"}
+            </button>
+            <button type="button" onClick={onRejectPendingEdit}>
+              Reject edits
             </button>
             <button type="button" onClick={onApplyPendingEdit}>
-              Apply edits
+              Keep edits
             </button>
           </div>
+          {showPendingDiff ? (
+            <pre className="assistant-pending-diff">
+              {formatLocalDiff(
+                pendingEdit.previousMarkdown,
+                pendingEdit.nextMarkdown,
+              )}
+            </pre>
+          ) : null}
         </section>
       ) : null}
 
@@ -303,7 +327,9 @@ export function AssistantPane({
 
         <div className="assistant-submit-row">
           <button type="button" disabled={sendDisabled} onClick={submitMessage}>
-            {sendButtonLabel({ isRunning, canSubmit, isProviderBlocked, provider })}
+            {isEditBlockedByPendingEdit
+              ? "Keep or reject edit first"
+              : sendButtonLabel({ isRunning, canSubmit, isProviderBlocked, provider })}
           </button>
           {provider !== "lm-studio" ? (
             <span
@@ -320,7 +346,7 @@ export function AssistantPane({
       </div>
 
       <details className="assistant-import">
-        <summary>Manual import</summary>
+        <summary>Paste response</summary>
         <label>
           Import response
           <textarea
@@ -331,7 +357,11 @@ export function AssistantPane({
           />
         </label>
 
-        <button type="button" onClick={() => onImport(importText, mode)}>
+        <button
+          type="button"
+          disabled={importDisabled}
+          onClick={() => onImport(importText, mode)}
+        >
           Import
         </button>
       </details>
@@ -391,9 +421,7 @@ function assistantDisplayLabel(provider: ProviderId) {
 
 const modeOptions: Array<{ value: AssistantMode; label: string }> = [
   { value: "chat", label: "Chat" },
-  { value: "rewrite", label: "Rewrite" },
-  { value: "diff", label: "Diff" },
-  { value: "suggestions", label: "Suggest" },
+  { value: "edit", label: "Edit" },
 ];
 
 function messageLabel(role: AssistantMessage["role"], assistantLabel: string) {
@@ -405,7 +433,7 @@ function messageLabel(role: AssistantMessage["role"], assistantLabel: string) {
     return assistantLabel;
   }
 
-  return "Scriptorium";
+  return "Status";
 }
 
 function providerStatusLabel(

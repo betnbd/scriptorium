@@ -102,6 +102,24 @@ describe("EditorPane", () => {
     expect(screen.getByRole("button", { name: "Save" })).toBeEnabled();
   });
 
+  it("shows when an AI edit is staged separately from dirty state", () => {
+    render(
+      <EditorPane
+        openFile={{ relativePath: "chapters/chapter-1.md", name: "chapter-1.md" }}
+        markdown="# Chapter 1"
+        mode="visual"
+        isDirty={true}
+        isAiEditStaged={true}
+        onChange={vi.fn()}
+        onSave={vi.fn()}
+        onModeChange={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText("AI edit staged")).toBeInTheDocument();
+    expect(screen.getByText("Unsaved")).toBeInTheDocument();
+  });
+
   it("gives the editor surface an accessible name", () => {
     render(
       <EditorPane

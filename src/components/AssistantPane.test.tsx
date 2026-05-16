@@ -54,14 +54,14 @@ describe("AssistantPane", () => {
     );
     await user.selectOptions(screen.getByLabelText("Model"), "opus");
     await user.selectOptions(screen.getByLabelText("Effort"), "xhigh");
-    await user.click(screen.getByRole("radio", { name: "Diff" }));
-    await user.type(screen.getByLabelText("Message"), "Show exact edits");
+    await user.click(screen.getByRole("radio", { name: "Edit" }));
+    await user.type(screen.getByLabelText("Message"), "Revise this scene");
     await user.click(screen.getByRole("button", { name: "Send to Claude" }));
 
     expect(props.onSubmit).toHaveBeenCalledWith({
       provider: "anthropic-subscription",
-      mode: "diff",
-      instruction: "Show exact edits",
+      mode: "edit",
+      instruction: "Revise this scene",
       model: "opus",
       effort: "xhigh",
     });
@@ -92,8 +92,8 @@ describe("AssistantPane", () => {
     const user = userEvent.setup();
     const props = renderPane();
 
-    await user.click(screen.getByRole("radio", { name: "Rewrite" }));
-    await user.click(screen.getByText("Manual import"));
+    await user.click(screen.getByRole("radio", { name: "Edit" }));
+    await user.click(screen.getByText("Paste response"));
     await user.type(
       screen.getByLabelText("Import response"),
       "Use shorter sentences.",
@@ -102,7 +102,7 @@ describe("AssistantPane", () => {
 
     expect(props.onImport).toHaveBeenCalledWith(
       "Use shorter sentences.",
-      "rewrite",
+      "edit",
     );
   });
 
@@ -165,23 +165,55 @@ describe("AssistantPane", () => {
   it("shows pending assistant edits with apply and discard actions", async () => {
     const user = userEvent.setup();
     const onApplyPendingEdit = vi.fn();
-    const onDiscardPendingEdit = vi.fn();
+    const onRejectPendingEdit = vi.fn();
     renderPane({
       pendingEdit: {
-        mode: "diff",
-        response: "diff text",
-        nextMarkdown: "# Revised",
+        mode: "edit",
+        response: "edit text",
+        previousMarkdown: "# Original line",
+        nextMarkdown: "# Revised line",
       },
       onApplyPendingEdit,
-      onDiscardPendingEdit,
+      onRejectPendingEdit,
     });
 
-    expect(screen.getByText("Proposed edits ready")).toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "Apply edits" }));
-    await user.click(screen.getByRole("button", { name: "Discard" }));
+    expect(screen.getByText("Edit ready")).toBeInTheDocument();
+    expect(screen.getByText("Review the staged edit before saving.")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Show diff" }));
+    expect(screen.getByText(/- # \[Original\] line/)).toBeInTheDocument();
+    expect(screen.getByText(/\+ # \[Revised\] line/)).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Keep edits" }));
+    await user.click(screen.getByRole("button", { name: "Reject edits" }));
 
     expect(onApplyPendingEdit).toHaveBeenCalledOnce();
-    expect(onDiscardPendingEdit).toHaveBeenCalledOnce();
+    expect(onRejectPendingEdit).toHaveBeenCalledOnce();
+  });
+
+  it("blocks a second edit request until the staged edit is resolved", async () => {
+    const user = userEvent.setup();
+    const onSubmit = vi.fn();
+
+    renderPane({
+      pendingEdit: {
+        mode: "edit",
+        response: "edit text",
+        previousMarkdown: "Old",
+        nextMarkdown: "New",
+      },
+      onSubmit,
+    });
+
+    await user.click(screen.getByRole("radio", { name: "Edit" }));
+    await user.type(screen.getByLabelText("Message"), "Revise again");
+
+    expect(
+      screen.getByRole("button", { name: "Keep or reject edit first" }),
+    ).toBeDisabled();
+    await user.click(screen.getByText("Paste response"));
+    expect(screen.getByRole("button", { name: "Import" })).toBeDisabled();
+
+    await user.click(screen.getByRole("radio", { name: "Chat" }));
+    expect(screen.getByRole("button", { name: "Send to OpenAI" })).toBeEnabled();
   });
 
   it("disables sending when there is no open file or no message", async () => {

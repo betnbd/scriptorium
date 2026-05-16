@@ -676,9 +676,7 @@ export default function App() {
       const submittedFilePath = state.openFile.relativePath;
       const submittedMarkdown = state.openMarkdown;
       const guardedMarkdown =
-        request.mode === "rewrite" || request.mode === "diff"
-          ? submittedMarkdown
-          : undefined;
+        request.mode === "edit" ? submittedMarkdown : undefined;
       const targetMarkdown = assistantSelection?.trim()
         ? assistantSelection
         : state.openMarkdown;
@@ -759,8 +757,7 @@ export default function App() {
     }
 
     if (
-      mode !== "chat" &&
-      mode !== "suggestions" &&
+      mode === "edit" &&
       expectedMarkdown !== undefined &&
       liveEditorRef.current.markdown !== expectedMarkdown
     ) {
@@ -790,14 +787,14 @@ export default function App() {
 
       setAssistantMode(mode);
 
-      if (parsed.kind === "rewrite" || parsed.kind === "diff") {
+      if (parsed.kind === "edit") {
+        dispatch({ type: "editorChanged", markdown: nextMarkdown });
         setPendingAssistantEdit({
-          mode: parsed.kind,
+          mode: "edit",
           response: response.trim(),
+          previousMarkdown: currentMarkdown,
           nextMarkdown,
         });
-      } else if (nextMarkdown !== state.openMarkdown) {
-        dispatch({ type: "editorChanged", markdown: nextMarkdown });
       }
 
       dispatch({
@@ -808,15 +805,12 @@ export default function App() {
         },
       });
 
-      if (parsed.kind === "rewrite" || parsed.kind === "diff") {
+      if (parsed.kind === "edit") {
         dispatch({
           type: "assistantMessageAdded",
           message: {
             role: "system",
-            content:
-              parsed.kind === "diff"
-                ? "Review the proposed edits before applying them."
-                : "Review the rewrite before applying it.",
+            content: "Review the staged edit before saving.",
           },
         });
       }
@@ -831,17 +825,29 @@ export default function App() {
     }
 
     dispatch({
+      type: "assistantMessageAdded",
+      message: {
+        role: "system",
+        content: "Kept edit in the open file. Save manually to write it to disk.",
+      },
+    });
+    setPendingAssistantEdit(null);
+  }
+
+  function rejectPendingAssistantEdit() {
+    if (!pendingAssistantEdit) {
+      return;
+    }
+
+    dispatch({
       type: "editorChanged",
-      markdown: pendingAssistantEdit.nextMarkdown,
+      markdown: pendingAssistantEdit.previousMarkdown,
     });
     dispatch({
       type: "assistantMessageAdded",
       message: {
         role: "system",
-        content:
-          pendingAssistantEdit.mode === "diff"
-            ? "Applied proposed edits to the open file."
-            : "Applied rewrite to the open file.",
+        content: "Rejected edit and restored the previous text.",
       },
     });
     setPendingAssistantEdit(null);
@@ -917,6 +923,7 @@ export default function App() {
           markdown={state.openMarkdown}
           mode={editorMode}
           isDirty={state.isDirty}
+          isAiEditStaged={Boolean(pendingAssistantEdit)}
           onChange={(markdown) =>
             dispatch({ type: "editorChanged", markdown })
           }
@@ -933,7 +940,7 @@ export default function App() {
               onPointerDown={(event) => startPaneResize("assistant", event)}
             />
             <AssistantPane
-              key={`${assistantSessionId}-${state.settings.defaultProvider}-${state.openFile?.relativePath ?? "none"}`}
+              key={assistantSessionId}
               settings={state.settings}
               canSubmit={Boolean(state.openFile)}
               isRunning={isAssistantRunning}
@@ -952,7 +959,7 @@ export default function App() {
               }}
               onImport={importAssistantResponse}
               onApplyPendingEdit={applyPendingAssistantEdit}
-              onDiscardPendingEdit={() => setPendingAssistantEdit(null)}
+              onRejectPendingEdit={rejectPendingAssistantEdit}
               onClose={() => setIsAssistantOpen(false)}
             />
           </>
