@@ -72,9 +72,13 @@ export function FileTree({
           >
             <FolderPlus aria-hidden="true" size={16} />
           </button>
-          <button type="button" onClick={onOpenFolder}>
+          <button
+            type="button"
+            aria-label="Open Folder"
+            title="Open Folder"
+            onClick={onOpenFolder}
+          >
             <FolderOpen aria-hidden="true" size={16} />
-            Open
           </button>
         </div>
       </header>

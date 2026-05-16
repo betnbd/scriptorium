@@ -148,7 +148,7 @@ describe("AssistantPane", () => {
     const user = userEvent.setup();
     const props = renderPane();
 
-    await user.click(screen.getByRole("button", { name: "Close" }));
+    await user.click(screen.getByRole("button", { name: "Hide" }));
 
     expect(props.onClose).toHaveBeenCalledOnce();
   });

@@ -24,7 +24,9 @@ test("renders the DraftAgent workspace", async ({ page }) => {
   await expect(page.getByRole("tab", { name: "Files" })).toBeVisible();
   await expect(page.getByRole("tab", { name: "Outline" })).toBeVisible();
   await expect(page.getByLabel("No file open")).toBeVisible();
-  await expect(page.getByLabel("AI conversation")).toHaveCount(0);
+  await expect(page.getByLabel("AI conversation")).toBeVisible();
+  await expect(page.getByRole("separator", { name: "Resize file pane" })).toBeVisible();
+  await expect(page.getByRole("separator", { name: "Resize AI pane" })).toBeVisible();
   await expect(page.getByRole("alert")).toHaveCount(0);
 
   await page.getByRole("button", { name: "File", exact: true }).click();

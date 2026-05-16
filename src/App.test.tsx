@@ -117,7 +117,9 @@ describe("App", () => {
     expect(screen.getByRole("button", { name: "Edit" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "AI" })).toBeInTheDocument();
     expect(screen.getByText("No file open")).toBeInTheDocument();
-    expect(screen.queryByLabelText("AI conversation")).not.toBeInTheDocument();
+    expect(screen.getByLabelText("AI conversation")).toBeInTheDocument();
+    expect(screen.getByRole("separator", { name: "Resize file pane" })).toBeInTheDocument();
+    expect(screen.getByRole("separator", { name: "Resize AI pane" })).toBeInTheDocument();
   });
 
   it("opens a fresh AI conversation from the menu", async () => {
@@ -238,7 +240,7 @@ describe("App", () => {
     );
     await user.click(await screen.findByRole("button", { name: "Edit Text" }));
     await screen.findByText("Unsaved");
-    await user.click(screen.getByRole("button", { name: "Open" }));
+    await user.click(screen.getByRole("button", { name: "Open Folder" }));
 
     expect(confirm).toHaveBeenCalledWith("Discard unsaved changes?");
     expect(tauriApiMock.pickProjectFolder).toHaveBeenCalledTimes(1);
@@ -602,7 +604,7 @@ describe("App", () => {
     await user.type(screen.getByLabelText("Message"), "Can you read this?");
     await user.click(screen.getByRole("button", { name: "Send to OpenAI" }));
     await screen.findByText("Readable.");
-    await user.click(screen.getByRole("button", { name: "Close" }));
+    await user.click(screen.getByRole("button", { name: "Hide" }));
     await openAssistant(user);
 
     expect(screen.queryByText("Readable.")).not.toBeInTheDocument();

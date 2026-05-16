@@ -33,7 +33,7 @@ describe("pane layout", () => {
         pane: "file",
         deltaX: -500,
       }).filePaneWidth,
-    ).toBe(220);
+    ).toBe(210);
     expect(
       resizePaneLayout({
         layout: defaultPaneLayout,

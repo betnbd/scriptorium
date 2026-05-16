@@ -116,7 +116,7 @@ export function AssistantPane({
           <p>{targetLabel ?? "Open a Markdown file"}</p>
         </div>
         <button type="button" className="assistant-close" onClick={onClose}>
-          Close
+          Hide
         </button>
       </header>
 
