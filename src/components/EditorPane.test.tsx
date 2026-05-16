@@ -67,10 +67,12 @@ describe("EditorPane", () => {
       <EditorPane
         openFile={null}
         markdown=""
+        mode="visual"
         isDirty={false}
         onChange={vi.fn()}
         onSave={vi.fn()}
         onOpenFolder={onOpenFolder}
+        onModeChange={vi.fn()}
       />,
     );
 
@@ -85,9 +87,11 @@ describe("EditorPane", () => {
       <EditorPane
         openFile={{ relativePath: "chapters/chapter-1.md", name: "chapter-1.md" }}
         markdown="# Chapter 1"
+        mode="visual"
         isDirty={true}
         onChange={vi.fn()}
         onSave={vi.fn()}
+        onModeChange={vi.fn()}
       />,
     );
 
@@ -103,9 +107,11 @@ describe("EditorPane", () => {
       <EditorPane
         openFile={{ relativePath: "chapters/chapter-1.md", name: "chapter-1.md" }}
         markdown="# Chapter 1"
+        mode="visual"
         isDirty={false}
         onChange={vi.fn()}
         onSave={vi.fn()}
+        onModeChange={vi.fn()}
       />,
     );
 
@@ -120,9 +126,11 @@ describe("EditorPane", () => {
       <EditorPane
         openFile={{ relativePath: "chapters/chapter-1.md", name: "chapter-1.md" }}
         markdown="# Chapter 1"
+        mode="visual"
         isDirty={false}
         onChange={onChange}
         onSave={vi.fn()}
+        onModeChange={vi.fn()}
       />,
     );
 
@@ -141,9 +149,11 @@ describe("EditorPane", () => {
       <EditorPane
         openFile={{ relativePath: "chapters/chapter-1.md", name: "chapter-1.md" }}
         markdown="# Chapter 1"
+        mode="visual"
         isDirty={false}
         onChange={vi.fn()}
         onSave={vi.fn()}
+        onModeChange={vi.fn()}
         onSelectionChange={onSelectionChange}
       />,
     );
@@ -172,15 +182,64 @@ describe("EditorPane", () => {
       <EditorPane
         openFile={{ relativePath: "MANUSCRIPT.md", name: "MANUSCRIPT.md" }}
         markdown={largeMarkdown}
+        mode="visual"
         isDirty={false}
         onChange={onChange}
         onSave={vi.fn()}
+        onModeChange={vi.fn()}
       />,
     );
 
-    const editor = screen.getByRole("textbox", { name: "Large Markdown editor" });
+    const editor = screen.getByRole("textbox", { name: "Markdown source editor" });
 
     expect(screen.getByText("Large file mode")).toBeInTheDocument();
+    expect(tiptap.useEditorCalls).toBe(0);
+
+    fireEvent.change(editor, { target: { value: "# Revised" } });
+
+    expect(onChange).toHaveBeenCalledWith("# Revised");
+  });
+
+  it("switches between visual and markdown source modes", async () => {
+    const onModeChange = vi.fn();
+
+    render(
+      <EditorPane
+        openFile={{ relativePath: "chapters/chapter-1.md", name: "chapter-1.md" }}
+        markdown="# Chapter 1"
+        mode="visual"
+        isDirty={false}
+        onChange={vi.fn()}
+        onSave={vi.fn()}
+        onModeChange={onModeChange}
+      />,
+    );
+
+    expect(screen.getByRole("radio", { name: "Visual" })).toBeChecked();
+
+    fireEvent.click(screen.getByRole("radio", { name: "Markdown" }));
+
+    expect(onModeChange).toHaveBeenCalledWith("markdown");
+  });
+
+  it("uses source mode for plain markdown editing", () => {
+    const onChange = vi.fn();
+
+    render(
+      <EditorPane
+        openFile={{ relativePath: "chapters/chapter-1.md", name: "chapter-1.md" }}
+        markdown="# Chapter 1"
+        mode="markdown"
+        isDirty={false}
+        onChange={onChange}
+        onSave={vi.fn()}
+        onModeChange={vi.fn()}
+      />,
+    );
+
+    const editor = screen.getByRole("textbox", { name: "Markdown source editor" });
+
+    expect(screen.getByRole("radio", { name: "Markdown" })).toBeChecked();
     expect(tiptap.useEditorCalls).toBe(0);
 
     fireEvent.change(editor, { target: { value: "# Revised" } });

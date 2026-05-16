@@ -30,6 +30,8 @@ test("renders the DraftAgent workspace", async ({ page }) => {
   await expect(page.getByRole("alert")).toHaveCount(0);
 
   await page.getByRole("button", { name: "File", exact: true }).click();
+  await expect(page.locator(".menu-popover")).toBeInViewport({ ratio: 0.95 });
+  await expect(page.getByRole("button", { name: "Open Folder" }).first()).toBeVisible();
   await page.getByRole("button", { name: "Settings" }).click();
   await expect(page.getByRole("dialog", { name: "Settings" })).toBeVisible();
   await expect(page.getByLabel("OpenAI model")).toBeVisible();

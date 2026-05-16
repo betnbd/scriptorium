@@ -10,6 +10,11 @@ import {
   type AssistantRequest,
 } from "./components/AssistantPane";
 import { EditorPane } from "./components/EditorPane";
+import type {
+  EditorCommand,
+  EditorMode,
+  EditorPaneHandle,
+} from "./components/EditorPane";
 import { FileTree } from "./components/FileTree";
 import { SettingsDialog } from "./components/SettingsDialog";
 import { buildIndex, selectRelevantContext } from "./context/indexer";
@@ -47,6 +52,7 @@ export default function App() {
   const [isAssistantRunning, setIsAssistantRunning] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [hasLocalSettings, setHasLocalSettings] = useState(false);
+  const [editorMode, setEditorMode] = useState<EditorMode>("visual");
   const [paneLayout, setPaneLayout] = useState<PaneLayout>(defaultPaneLayout);
   const [activeResizePane, setActiveResizePane] =
     useState<ResizePane | null>(null);
@@ -55,6 +61,7 @@ export default function App() {
     startX: number;
     layout: PaneLayout;
   } | null>(null);
+  const editorPaneRef = useRef<EditorPaneHandle | null>(null);
   const liveEditorRef = useRef<{
     relativePath: string | null;
     markdown: string;
@@ -137,13 +144,20 @@ export default function App() {
       const key = event.key.toLowerCase();
       const isCommand = event.metaKey || event.ctrlKey;
 
-      if (!isCommand || key !== "s") {
+      if (event.altKey && event.shiftKey && (key === "%" || key === "5")) {
+        event.preventDefault();
+        runEditorCommand("strike");
         return;
       }
 
-      event.preventDefault();
-      if (state.isDirty) {
-        void saveFile();
+      if (!isCommand) {
+        return;
+      }
+
+      const handled = handleKeyboardShortcut(event);
+
+      if (handled) {
+        event.preventDefault();
       }
     }
 
@@ -152,7 +166,14 @@ export default function App() {
     return () => {
       window.removeEventListener("keydown", onKeyDown);
     };
-  }, [state.isDirty, state.openFile, state.openMarkdown, state.rootPath]);
+  }, [
+    editorMode,
+    state.isDirty,
+    state.openFile,
+    state.openMarkdown,
+    state.rootPath,
+    state.tree,
+  ]);
 
   async function refreshTree(rootPath = state.rootPath) {
     if (!rootPath) {
@@ -270,6 +291,111 @@ export default function App() {
     } catch (error) {
       showError(error);
     }
+  }
+
+  function closeOpenFile() {
+    if (!state.openFile) {
+      return;
+    }
+
+    if (!shouldSwitchFile(state.isDirty, confirmDiscardChanges)) {
+      return;
+    }
+
+    setAssistantSelection(null);
+    dispatch({ type: "fileClosed" });
+  }
+
+  function openQuickly() {
+    if (!state.rootPath) {
+      return;
+    }
+
+    const query = window.prompt("Open quickly");
+
+    if (!query?.trim()) {
+      return;
+    }
+
+    const normalizedQuery = query.trim().toLowerCase();
+    const match = flattenProjectFilePaths(state.tree).find((path) =>
+      path.toLowerCase().includes(normalizedQuery),
+    );
+
+    if (!match) {
+      showError(`No file matched "${query.trim()}".`);
+      return;
+    }
+
+    void openFile(match);
+  }
+
+  function toggleEditorMode() {
+    setEditorMode((current) =>
+      current === "markdown" ? "visual" : "markdown",
+    );
+  }
+
+  function runEditorCommand(command: EditorCommand) {
+    editorPaneRef.current?.runCommand(command);
+  }
+
+  function handleKeyboardShortcut(event: KeyboardEvent): boolean {
+    const key = event.key.toLowerCase();
+
+    if (key === "s") {
+      if (state.isDirty) {
+        void saveFile();
+      }
+      return true;
+    }
+
+    if (key === "n") {
+      if (event.shiftKey) {
+        void createFolder("");
+      } else {
+        void createFile("");
+      }
+      return true;
+    }
+
+    if (key === "o") {
+      void openFolder();
+      return true;
+    }
+
+    if (key === "p") {
+      openQuickly();
+      return true;
+    }
+
+    if (key === ",") {
+      setIsSettingsOpen(true);
+      return true;
+    }
+
+    if (key === "w") {
+      closeOpenFile();
+      return true;
+    }
+
+    if (key === "/") {
+      toggleEditorMode();
+      return true;
+    }
+
+    const editorCommand = shortcutToEditorCommand(event);
+
+    if (editorCommand) {
+      if (!shouldRouteShortcutToEditor(event.target)) {
+        return false;
+      }
+
+      runEditorCommand(editorCommand);
+      return true;
+    }
+
+    return false;
   }
 
   async function saveSettings(settings: AppSettings) {
@@ -685,15 +811,21 @@ export default function App() {
         </div>
       ) : null}
       <AppMenuBar
+        canUseEditor={Boolean(state.openFile)}
         canSave={state.isDirty}
         canUseProject={Boolean(state.rootPath)}
+        editorMode={editorMode}
         onOpenFolder={openFolder}
+        onOpenQuickly={openQuickly}
         onCreateFile={() => void createFile("")}
         onCreateFolder={() => void createFolder("")}
+        onCloseFile={closeOpenFile}
         onSave={() => void saveFile()}
         onSettings={() => setIsSettingsOpen(true)}
         onReindex={() => void reindexProject()}
         onResetLayout={() => setPaneLayout(resetPaneLayout())}
+        onToggleEditorMode={toggleEditorMode}
+        onEditorCommand={runEditorCommand}
         onOpenAssistant={openAssistant}
       />
       <div
@@ -723,14 +855,17 @@ export default function App() {
           onPointerDown={(event) => startPaneResize("file", event)}
         />
         <EditorPane
+          ref={editorPaneRef}
           openFile={state.openFile}
           markdown={state.openMarkdown}
+          mode={editorMode}
           isDirty={state.isDirty}
           onChange={(markdown) =>
             dispatch({ type: "editorChanged", markdown })
           }
           onSave={saveFile}
           onOpenFolder={openFolder}
+          onModeChange={setEditorMode}
           onSelectionChange={setAssistantSelection}
         />
         {isAssistantOpen ? (
@@ -890,6 +1025,108 @@ function flattenProjectFilePaths(nodes: FileNode[]): string[] {
 
 function formatAssistantUserMessage(request: AssistantRequest): string {
   return request.instruction.trim();
+}
+
+function shouldRouteShortcutToEditor(target: EventTarget | null): boolean {
+  if (!(target instanceof Element)) {
+    return true;
+  }
+
+  if (target.closest(".editor-pane")) {
+    return true;
+  }
+
+  if (target.closest("input, textarea, select, [contenteditable='true']")) {
+    return false;
+  }
+
+  return true;
+}
+
+function shortcutToEditorCommand(event: KeyboardEvent): EditorCommand | null {
+  const key = event.key.toLowerCase();
+
+  if (event.shiftKey && key === "z") {
+    return "redo";
+  }
+
+  if (key === "z") {
+    return "undo";
+  }
+
+  if (key === "y") {
+    return "redo";
+  }
+
+  if (key === "x") {
+    return "cut";
+  }
+
+  if (key === "c") {
+    return "copy";
+  }
+
+  if (key === "v") {
+    return "paste";
+  }
+
+  if (key === "a") {
+    return "selectAll";
+  }
+
+  if (/^[1-6]$/.test(key)) {
+    return `heading${key}` as EditorCommand;
+  }
+
+  if (key === "0") {
+    return "paragraph";
+  }
+
+  if (key === "b") {
+    return "bold";
+  }
+
+  if (key === "i") {
+    return "italic";
+  }
+
+  if (key === "u") {
+    return "underline";
+  }
+
+  if (key === "k" && event.shiftKey) {
+    return "codeBlock";
+  }
+
+  if (key === "k") {
+    return "link";
+  }
+
+  if (key === "`" && event.shiftKey) {
+    return "inlineCode";
+  }
+
+  if (key === "\\" || key === "|") {
+    return "clearFormat";
+  }
+
+  if (event.shiftKey && key === "q") {
+    return "blockquote";
+  }
+
+  if (event.shiftKey && (event.key === "[" || event.key === "{")) {
+    return "orderedList";
+  }
+
+  if (event.shiftKey && (event.key === "]" || event.key === "}")) {
+    return "bulletList";
+  }
+
+  if (event.altKey && event.shiftKey && (key === "%" || key === "5")) {
+    return "strike";
+  }
+
+  return null;
 }
 
 async function buildMarkdownIndex(

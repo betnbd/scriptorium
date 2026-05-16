@@ -6,14 +6,20 @@ import { AppMenuBar } from "./AppMenuBar";
 function renderMenu(overrides = {}) {
   const props = {
     canSave: true,
+    canUseEditor: true,
     canUseProject: true,
+    editorMode: "visual" as const,
     onOpenFolder: vi.fn(),
+    onOpenQuickly: vi.fn(),
     onCreateFile: vi.fn(),
     onCreateFolder: vi.fn(),
+    onCloseFile: vi.fn(),
     onSave: vi.fn(),
     onSettings: vi.fn(),
     onReindex: vi.fn(),
     onResetLayout: vi.fn(),
+    onToggleEditorMode: vi.fn(),
+    onEditorCommand: vi.fn(),
     onOpenAssistant: vi.fn(),
     ...overrides,
   };
@@ -58,5 +64,28 @@ describe("AppMenuBar", () => {
     await user.click(screen.getByRole("button", { name: "New Conversation" }));
 
     expect(props.onOpenAssistant).toHaveBeenCalledOnce();
+  });
+
+  it("routes paragraph and format commands to the editor", async () => {
+    const user = userEvent.setup();
+    const props = renderMenu();
+
+    await user.click(screen.getByText("Paragraph"));
+    await user.click(screen.getByRole("button", { name: "Heading 2" }));
+    await user.click(screen.getByText("Format"));
+    await user.click(screen.getByRole("button", { name: "Strong" }));
+
+    expect(props.onEditorCommand).toHaveBeenNthCalledWith(1, "heading2");
+    expect(props.onEditorCommand).toHaveBeenNthCalledWith(2, "bold");
+  });
+
+  it("toggles source mode from the view menu", async () => {
+    const user = userEvent.setup();
+    const props = renderMenu();
+
+    await user.click(screen.getByText("View"));
+    await user.click(screen.getByRole("button", { name: "Source Code Mode" }));
+
+    expect(props.onToggleEditorMode).toHaveBeenCalledOnce();
   });
 });

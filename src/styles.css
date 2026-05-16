@@ -39,11 +39,13 @@ select {
 }
 
 .app-menubar {
+  position: relative;
+  z-index: 40;
   display: flex;
   align-items: center;
   border-bottom: 1px solid #ededed;
   padding: 0 4px;
-  overflow-x: auto;
+  overflow: visible;
   background: #fafafa;
 }
 
@@ -88,7 +90,7 @@ select {
   left: 0;
   z-index: 30;
   display: flex;
-  min-width: 180px;
+  min-width: 240px;
   flex-direction: column;
   gap: 2px;
   border: 1px solid #d7d7d7;
@@ -100,6 +102,10 @@ select {
 
 .menu-popover button,
 .menubar-settings {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 20px;
   min-height: 30px;
   border: 0;
   border-radius: 4px;
@@ -110,6 +116,18 @@ select {
   font-weight: 400;
   text-align: left;
   cursor: pointer;
+}
+
+.menu-popover kbd {
+  color: #777777;
+  font: inherit;
+  font-size: 12px;
+}
+
+.menu-divider {
+  height: 1px;
+  margin: 3px 5px;
+  background: #e6e6e6;
 }
 
 .menu-popover button:hover,
@@ -681,8 +699,47 @@ select {
 .editor-actions {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
   flex-shrink: 0;
+}
+
+.editor-mode-segment {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 3px;
+  border: 1px solid #d5d5d5;
+  border-radius: 6px;
+  padding: 3px;
+  background: #f2f2f2;
+}
+
+.editor-mode-segment label {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  padding: 4px 8px;
+  color: #555555;
+  font-size: 12px;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.editor-mode-segment label.is-active {
+  color: #20242a;
+  background: #ffffff;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.12);
+}
+
+.editor-mode-segment input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: 0;
+  border: 0;
+  padding: 0;
+  opacity: 0;
+  pointer-events: none;
 }
 
 .editor-actions span {
@@ -786,7 +843,7 @@ select {
   margin: 0 0 1em;
 }
 
-.large-markdown-editor {
+.source-markdown-editor {
   display: block;
   width: min(var(--editor-line-width, 760px), 100%);
   min-height: calc(100vh - 170px);
@@ -803,7 +860,7 @@ select {
   overflow-wrap: anywhere;
 }
 
-.large-markdown-editor:focus-visible {
+.source-markdown-editor:focus-visible {
   outline: 2px solid #4f7db8;
   outline-offset: 8px;
 }
