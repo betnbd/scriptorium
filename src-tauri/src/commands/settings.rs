@@ -19,6 +19,10 @@ pub struct Settings {
     pub anthropic_effort: String,
     pub lm_studio_base_url: String,
     pub lm_studio_model: String,
+    #[serde(default = "default_theme_id")]
+    pub theme_id: String,
+    #[serde(default = "default_editor_font")]
+    pub editor_font: String,
     pub editor_font_size: u16,
     pub editor_line_width: u16,
     #[serde(default = "default_true")]
@@ -107,4 +111,12 @@ fn default_anthropic_model() -> String {
 
 fn default_effort() -> String {
     "medium".to_string()
+}
+
+fn default_theme_id() -> String {
+    "paper".to_string()
+}
+
+fn default_editor_font() -> String {
+    "literary".to_string()
 }

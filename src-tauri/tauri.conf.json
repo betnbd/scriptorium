@@ -1,6 +1,6 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "DraftAgent",
+  "productName": "Scriptorium",
   "version": "0.1.0",
   "identifier": "app.draftagent.local",
   "build": {
@@ -12,7 +12,7 @@
   "app": {
     "windows": [
       {
-        "title": "DraftAgent",
+        "title": "Scriptorium",
         "width": 800,
         "height": 600
       }

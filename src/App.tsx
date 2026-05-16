@@ -31,9 +31,11 @@ import {
 import type {
   AppSettings,
   AssistantMode,
+  EditorFont,
   FileNode,
   IndexedDocument,
   ProviderStatus,
+  ThemeId,
 } from "./types";
 import "./styles.css";
 
@@ -338,6 +340,16 @@ export default function App() {
 
   function runEditorCommand(command: EditorCommand) {
     editorPaneRef.current?.runCommand(command);
+  }
+
+  function changeTheme(themeId: ThemeId) {
+    const nextSettings = { ...state.settings, themeId };
+
+    dispatch({ type: "settingsLoaded", settings: nextSettings });
+    void tauriApi
+      .saveSettings(nextSettings)
+      .then(() => setHasLocalSettings(true))
+      .catch(showError);
   }
 
   function handleKeyboardShortcut(event: KeyboardEvent): boolean {
@@ -798,7 +810,12 @@ export default function App() {
   }
 
   return (
-    <main className="app-shell" style={editorSettingsStyle}>
+    <main
+      className="app-shell"
+      data-editor-font={state.settings.editorFont}
+      data-theme={state.settings.themeId}
+      style={editorSettingsStyle}
+    >
       {state.errorMessage ? (
         <div className="error-banner" role="alert">
           <span>{state.errorMessage}</span>
@@ -824,6 +841,8 @@ export default function App() {
         onSettings={() => setIsSettingsOpen(true)}
         onReindex={() => void reindexProject()}
         onResetLayout={() => setPaneLayout(resetPaneLayout())}
+        themeId={state.settings.themeId}
+        onThemeChange={changeTheme}
         onToggleEditorMode={toggleEditorMode}
         onEditorCommand={runEditorCommand}
         onOpenAssistant={openAssistant}
@@ -1205,51 +1224,70 @@ function parseProjectEnvSettings(markdown: string): Partial<AppSettings> | null 
       }),
   );
   const parsed: Partial<AppSettings> = {};
+  const envValue = (key: string) =>
+    values[`SCRIPTORIUM_${key}`] ?? values[`DRAFTAGENT_${key}`];
 
-  if (isProviderId(values.DRAFTAGENT_DEFAULT_PROVIDER)) {
-    parsed.defaultProvider = values.DRAFTAGENT_DEFAULT_PROVIDER;
+  const defaultProvider = envValue("DEFAULT_PROVIDER");
+  if (isProviderId(defaultProvider)) {
+    parsed.defaultProvider = defaultProvider;
   }
-  if (values.DRAFTAGENT_OPENAI_URL) {
-    parsed.openaiUrl = values.DRAFTAGENT_OPENAI_URL;
+  const openaiUrl = envValue("OPENAI_URL");
+  if (openaiUrl) {
+    parsed.openaiUrl = openaiUrl;
   }
-  if (values.DRAFTAGENT_OPENAI_MODEL) {
-    parsed.openaiModel = values.DRAFTAGENT_OPENAI_MODEL;
+  const openaiModel = envValue("OPENAI_MODEL");
+  if (openaiModel) {
+    parsed.openaiModel = openaiModel;
   }
-  if (values.DRAFTAGENT_OPENAI_EFFORT) {
-    parsed.openaiEffort = values.DRAFTAGENT_OPENAI_EFFORT;
+  const openaiEffort = envValue("OPENAI_EFFORT");
+  if (openaiEffort) {
+    parsed.openaiEffort = openaiEffort;
   }
-  if (values.DRAFTAGENT_ANTHROPIC_URL) {
-    parsed.anthropicUrl = values.DRAFTAGENT_ANTHROPIC_URL;
+  const anthropicUrl = envValue("ANTHROPIC_URL");
+  if (anthropicUrl) {
+    parsed.anthropicUrl = anthropicUrl;
   }
-  if (values.DRAFTAGENT_ANTHROPIC_MODEL) {
-    parsed.anthropicModel = values.DRAFTAGENT_ANTHROPIC_MODEL;
+  const anthropicModel = envValue("ANTHROPIC_MODEL");
+  if (anthropicModel) {
+    parsed.anthropicModel = anthropicModel;
   }
-  if (values.DRAFTAGENT_ANTHROPIC_EFFORT) {
-    parsed.anthropicEffort = values.DRAFTAGENT_ANTHROPIC_EFFORT;
+  const anthropicEffort = envValue("ANTHROPIC_EFFORT");
+  if (anthropicEffort) {
+    parsed.anthropicEffort = anthropicEffort;
   }
-  if (values.DRAFTAGENT_LM_STUDIO_BASE_URL) {
-    parsed.lmStudioBaseUrl = values.DRAFTAGENT_LM_STUDIO_BASE_URL;
+  const lmStudioBaseUrl = envValue("LM_STUDIO_BASE_URL");
+  if (lmStudioBaseUrl) {
+    parsed.lmStudioBaseUrl = lmStudioBaseUrl;
   }
-  if (values.DRAFTAGENT_LM_STUDIO_MODEL) {
-    parsed.lmStudioModel = values.DRAFTAGENT_LM_STUDIO_MODEL;
+  const lmStudioModel = envValue("LM_STUDIO_MODEL");
+  if (lmStudioModel) {
+    parsed.lmStudioModel = lmStudioModel;
   }
-  const editorFontSize = Number(values.DRAFTAGENT_EDITOR_FONT_SIZE);
+  const themeId = envValue("THEME");
+  if (isThemeId(themeId)) {
+    parsed.themeId = themeId;
+  }
+  const editorFont = envValue("EDITOR_FONT");
+  if (isEditorFont(editorFont)) {
+    parsed.editorFont = editorFont;
+  }
+  const editorFontSize = Number(envValue("EDITOR_FONT_SIZE"));
   if (Number.isFinite(editorFontSize)) {
     parsed.editorFontSize = editorFontSize;
   }
-  const editorLineWidth = Number(values.DRAFTAGENT_EDITOR_LINE_WIDTH);
+  const editorLineWidth = Number(envValue("EDITOR_LINE_WIDTH"));
   if (Number.isFinite(editorLineWidth)) {
     parsed.editorLineWidth = editorLineWidth;
   }
-  const ignoreHidden = parseEnvBoolean(values.DRAFTAGENT_IGNORE_HIDDEN);
+  const ignoreHidden = parseEnvBoolean(envValue("IGNORE_HIDDEN"));
   if (ignoreHidden !== null) {
     parsed.ignoreHidden = ignoreHidden;
   }
-  const ignoreLargeFiles = parseEnvBoolean(values.DRAFTAGENT_IGNORE_LARGE_FILES);
+  const ignoreLargeFiles = parseEnvBoolean(envValue("IGNORE_LARGE_FILES"));
   if (ignoreLargeFiles !== null) {
     parsed.ignoreLargeFiles = ignoreLargeFiles;
   }
-  const ignoreBinaryFiles = parseEnvBoolean(values.DRAFTAGENT_IGNORE_BINARY_FILES);
+  const ignoreBinaryFiles = parseEnvBoolean(envValue("IGNORE_BINARY_FILES"));
   if (ignoreBinaryFiles !== null) {
     parsed.ignoreBinaryFiles = ignoreBinaryFiles;
   }
@@ -1263,6 +1301,27 @@ function isProviderId(value: string | undefined): value is AppSettings["defaultP
     value === "anthropic-subscription" ||
     value === "lm-studio"
   );
+}
+
+function isThemeId(value: string | undefined): value is ThemeId {
+  return (
+    value === "paper" ||
+    value === "catppuccin-latte" ||
+    value === "catppuccin-mocha" ||
+    value === "gruvbox-light" ||
+    value === "gruvbox-dark" ||
+    value === "dracula" ||
+    value === "nord" ||
+    value === "solarized-light" ||
+    value === "solarized-dark" ||
+    value === "tokyo-night" ||
+    value === "rose-pine" ||
+    value === "everforest"
+  );
+}
+
+function isEditorFont(value: string | undefined): value is EditorFont {
+  return value === "literary" || value === "system" || value === "mono";
 }
 
 function parseEnvBoolean(value: string | undefined): boolean | null {

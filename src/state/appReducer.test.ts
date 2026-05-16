@@ -133,5 +133,7 @@ describe("appReducer", () => {
     expect(state.settings.openaiEffort).toBe("medium");
     expect(state.settings.anthropicModel).toBe("sonnet");
     expect(state.settings.anthropicEffort).toBe("medium");
+    expect(state.settings.themeId).toBe("paper");
+    expect(state.settings.editorFont).toBe("literary");
   });
 });

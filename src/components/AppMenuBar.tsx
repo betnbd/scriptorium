@@ -1,7 +1,9 @@
 import { ChevronDown } from "lucide-react";
 import { useState } from "react";
 import type { ReactNode } from "react";
+import { themeOptions } from "../themeOptions";
 import type { EditorCommand, EditorMode } from "./EditorPane";
+import type { ThemeId } from "../types";
 
 interface AppMenuBarProps {
   canUseEditor: boolean;
@@ -17,6 +19,8 @@ interface AppMenuBarProps {
   onSettings: () => void;
   onReindex: () => void;
   onResetLayout: () => void;
+  themeId: ThemeId;
+  onThemeChange: (themeId: ThemeId) => void;
   onToggleEditorMode: () => void;
   onEditorCommand: (command: EditorCommand) => void;
   onOpenAssistant: () => void;
@@ -36,14 +40,22 @@ export function AppMenuBar({
   onSettings,
   onReindex,
   onResetLayout,
+  themeId,
+  onThemeChange,
   onToggleEditorMode,
   onEditorCommand,
   onOpenAssistant,
 }: AppMenuBarProps) {
+  const [openMenu, setOpenMenu] = useState<string | null>(null);
+
   return (
     <header className="app-menubar">
       <nav className="menu-groups" aria-label="Application menu">
-        <Menu label="File">
+        <Menu
+          isOpen={openMenu === "File"}
+          label="File"
+          onOpenChange={(nextOpen) => setOpenMenu(nextOpen ? "File" : null)}
+        >
           <MenuItem
             disabled={!canUseProject}
             label="New File"
@@ -80,7 +92,11 @@ export function AppMenuBar({
           <MenuDivider />
           <MenuItem label="Settings" shortcut="Ctrl+," onClick={onSettings} />
         </Menu>
-        <Menu label="Edit">
+        <Menu
+          isOpen={openMenu === "Edit"}
+          label="Edit"
+          onOpenChange={(nextOpen) => setOpenMenu(nextOpen ? "Edit" : null)}
+        >
           <MenuItem
             disabled={!canUseEditor}
             label="Undo"
@@ -119,7 +135,11 @@ export function AppMenuBar({
             onClick={() => onEditorCommand("selectAll")}
           />
         </Menu>
-        <Menu label="Paragraph">
+        <Menu
+          isOpen={openMenu === "Paragraph"}
+          label="Paragraph"
+          onOpenChange={(nextOpen) => setOpenMenu(nextOpen ? "Paragraph" : null)}
+        >
           {([1, 2, 3, 4, 5, 6] as const).map((level) => (
             <MenuItem
               disabled={!canUseEditor}
@@ -161,7 +181,11 @@ export function AppMenuBar({
             onClick={() => onEditorCommand("codeBlock")}
           />
         </Menu>
-        <Menu label="Format">
+        <Menu
+          isOpen={openMenu === "Format"}
+          label="Format"
+          onOpenChange={(nextOpen) => setOpenMenu(nextOpen ? "Format" : null)}
+        >
           <MenuItem
             disabled={!canUseEditor}
             label="Strong"
@@ -206,7 +230,11 @@ export function AppMenuBar({
             onClick={() => onEditorCommand("clearFormat")}
           />
         </Menu>
-        <Menu label="View">
+        <Menu
+          isOpen={openMenu === "View"}
+          label="View"
+          onOpenChange={(nextOpen) => setOpenMenu(nextOpen ? "View" : null)}
+        >
           <MenuItem
             disabled={!canUseEditor}
             label={
@@ -224,18 +252,65 @@ export function AppMenuBar({
             onClick={onReindex}
           />
         </Menu>
-        <Menu label="Themes">
-          <MenuItem disabled label="Light" />
+        <Menu
+          isOpen={openMenu === "Themes"}
+          label="Themes"
+          onOpenChange={(nextOpen) => setOpenMenu(nextOpen ? "Themes" : null)}
+        >
+          {themeOptions.map((theme) => (
+            <ThemeMenuItem
+              isSelected={theme.id === themeId}
+              key={theme.id}
+              label={theme.label}
+              themeId={theme.id}
+              onClick={() => onThemeChange(theme.id)}
+            />
+          ))}
         </Menu>
-        <Menu label="AI">
+        <Menu
+          isOpen={openMenu === "AI"}
+          label="AI"
+          onOpenChange={(nextOpen) => setOpenMenu(nextOpen ? "AI" : null)}
+        >
           <MenuItem label="New Conversation" onClick={onOpenAssistant} />
           <MenuItem label="Provider Settings" onClick={onSettings} />
         </Menu>
-        <Menu label="Help">
-          <MenuItem disabled label="DraftAgent" />
+        <Menu
+          isOpen={openMenu === "Help"}
+          label="Help"
+          onOpenChange={(nextOpen) => setOpenMenu(nextOpen ? "Help" : null)}
+        >
+          <MenuItem disabled label="Scriptorium" />
         </Menu>
       </nav>
     </header>
+  );
+}
+
+function ThemeMenuItem({
+  isSelected,
+  label,
+  themeId,
+  onClick,
+}: {
+  isSelected: boolean;
+  label: string;
+  themeId: ThemeId;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      aria-current={isSelected ? "true" : undefined}
+      className="theme-menu-item"
+      type="button"
+      onClick={onClick}
+    >
+      <span className="theme-menu-item-label">
+        <span aria-hidden="true" className="theme-swatch" data-theme-swatch={themeId} />
+        {label}
+      </span>
+      <span aria-hidden="true">{isSelected ? "✓" : ""}</span>
+    </button>
   );
 }
 
@@ -263,21 +338,23 @@ function MenuItem({
 }
 
 function Menu({
+  isOpen,
   label,
   children,
+  onOpenChange,
 }: {
+  isOpen: boolean;
   label: string;
   children: ReactNode;
+  onOpenChange: (isOpen: boolean) => void;
 }) {
-  const [isOpen, setIsOpen] = useState(false);
-
   return (
     <div className={isOpen ? "menu-group is-open" : "menu-group"}>
       <button
         aria-expanded={isOpen}
         className="menu-trigger"
         type="button"
-        onClick={() => setIsOpen((current) => !current)}
+        onClick={() => onOpenChange(!isOpen)}
       >
         {label}
         <ChevronDown aria-hidden="true" size={14} />
@@ -287,7 +364,7 @@ function Menu({
           className="menu-popover"
           onClick={(event) => {
             if ((event.target as HTMLElement).closest("button")) {
-              setIsOpen(false);
+              onOpenChange(false);
             }
           }}
         >

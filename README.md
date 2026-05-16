@@ -1,14 +1,16 @@
-# DraftAgent
+# Scriptorium
 
-DraftAgent is a local desktop writing workspace for drafting and revising long-form fiction stored as Markdown files.
+Scriptorium is a local desktop writing workspace for drafting and revising long-form fiction stored as Markdown files.
 
 ## Current V1 Workflow
 
 - Open a local folder.
 - Browse all files in the left pane.
 - Open one Markdown file at a time in the center editor.
-- Write in a rich editor while DraftAgent saves plain Markdown.
+- Write in a rich editor while Scriptorium saves plain Markdown.
 - Save explicitly; manuscript changes are not autosaved.
+- Choose from lightweight built-in editor themes, including Paper, Catppuccin,
+  Gruvbox, Dracula, Nord, Solarized, Tokyo Night, Rose Pine, and Everforest.
 - Use the assistant pane to talk to an in-app provider:
   - OpenAI subscription via a local `codex login` session.
   - Anthropic subscription via a local `claude auth login` session.
@@ -28,7 +30,7 @@ For this Ubuntu workstation, use the native release binary or the Debian package
 
 ```bash
 npm run tauri:build
-./src-tauri/target/release/draftagent
+./src-tauri/target/release/scriptorium
 ```
 
 The build is configured to produce the Debian bundle at `src-tauri/target/release/bundle/deb/` and to avoid AppImage packaging, which can launch a bundled WebKitGTK helper process that crashes on this machine.

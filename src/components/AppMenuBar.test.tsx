@@ -18,6 +18,8 @@ function renderMenu(overrides = {}) {
     onSettings: vi.fn(),
     onReindex: vi.fn(),
     onResetLayout: vi.fn(),
+    themeId: "paper" as const,
+    onThemeChange: vi.fn(),
     onToggleEditorMode: vi.fn(),
     onEditorCommand: vi.fn(),
     onOpenAssistant: vi.fn(),
@@ -54,6 +56,16 @@ describe("AppMenuBar", () => {
 
     expect(props.onOpenAssistant).toHaveBeenCalledOnce();
     expect(props.onSettings).toHaveBeenCalledOnce();
+  });
+
+  it("applies themes from the theme menu", async () => {
+    const user = userEvent.setup();
+    const props = renderMenu();
+
+    await user.click(screen.getByText("Themes"));
+    await user.click(screen.getByRole("button", { name: "Catppuccin Mocha" }));
+
+    expect(props.onThemeChange).toHaveBeenCalledWith("catppuccin-mocha");
   });
 
   it("allows reopening AI before a project is loaded", async () => {

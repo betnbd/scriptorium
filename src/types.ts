@@ -27,6 +27,20 @@ export type ProviderId =
   | "anthropic-subscription"
   | "lm-studio";
 export type AssistantMode = "chat" | "rewrite" | "diff" | "suggestions";
+export type ThemeId =
+  | "paper"
+  | "catppuccin-latte"
+  | "catppuccin-mocha"
+  | "gruvbox-light"
+  | "gruvbox-dark"
+  | "dracula"
+  | "nord"
+  | "solarized-light"
+  | "solarized-dark"
+  | "tokyo-night"
+  | "rose-pine"
+  | "everforest";
+export type EditorFont = "literary" | "system" | "mono";
 
 export interface AssistantMessage {
   role: "user" | "assistant" | "system";
@@ -50,6 +64,8 @@ export interface AppSettings {
   anthropicEffort: string;
   lmStudioBaseUrl: string;
   lmStudioModel: string;
+  themeId: ThemeId;
+  editorFont: EditorFont;
   editorFontSize: number;
   editorLineWidth: number;
   ignoreHidden: boolean;

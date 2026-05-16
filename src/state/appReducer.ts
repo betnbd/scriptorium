@@ -53,6 +53,8 @@ export const defaultSettings: AppSettings = {
   anthropicEffort: "medium",
   lmStudioBaseUrl: "http://127.0.0.1:1234/v1",
   lmStudioModel: "local-model",
+  themeId: "paper",
+  editorFont: "literary",
   editorFontSize: 18,
   editorLineWidth: 760,
   ignoreHidden: true,

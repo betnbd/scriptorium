@@ -204,6 +204,10 @@ export function createBrowserTauriApi(): TauriApi {
         return null as T;
       }
 
+      if (command === "save_settings") {
+        return undefined as T;
+      }
+
       if (command === "read_project_tree") {
         return [] as T;
       }
@@ -217,7 +221,7 @@ export function createBrowserTauriApi(): TauriApi {
         } as T;
       }
 
-      throw new Error("Desktop file access is available in the DraftAgent app.");
+      throw new Error("Desktop file access is available in the Scriptorium app.");
     },
     async open() {
       return null;

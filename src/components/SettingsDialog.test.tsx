@@ -21,6 +21,8 @@ describe("SettingsDialog", () => {
       screen.getByLabelText("Default provider"),
       "anthropic-subscription",
     );
+    await user.selectOptions(screen.getByLabelText("Theme"), "gruvbox-dark");
+    await user.selectOptions(screen.getByLabelText("Editor font"), "system");
     expect(screen.getByText("Provider connections")).toBeInTheDocument();
     expect(screen.getByText("codex login")).toBeInTheDocument();
     expect(screen.getByText("claude auth login")).toBeInTheDocument();
@@ -45,6 +47,8 @@ describe("SettingsDialog", () => {
         anthropicModel: "opus",
         anthropicEffort: "max",
         lmStudioModel: "mistral-local",
+        themeId: "gruvbox-dark",
+        editorFont: "system",
         editorFontSize: 20,
         ignoreHidden: false,
         ignoreBinaryFiles: false,

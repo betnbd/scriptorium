@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { CircleAlert, CircleCheck, RefreshCw, Terminal } from "lucide-react";
 import type { AppSettings, ProviderId, ProviderStatus } from "../types";
+import { editorFontOptions, themeOptions } from "../themeOptions";
 
 interface SettingsDialogProps {
   settings: AppSettings;
@@ -72,12 +73,52 @@ export function SettingsDialog({
             </select>
           </label>
 
+          <div className="settings-number-row">
+            <label>
+              Theme
+              <select
+                value={draft.themeId}
+                onChange={(event) =>
+                  setDraft({
+                    ...draft,
+                    themeId: event.target.value as AppSettings["themeId"],
+                  })
+                }
+              >
+                {themeOptions.map((theme) => (
+                  <option key={theme.id} value={theme.id}>
+                    {theme.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label>
+              Editor font
+              <select
+                value={draft.editorFont}
+                onChange={(event) =>
+                  setDraft({
+                    ...draft,
+                    editorFont: event.target.value as AppSettings["editorFont"],
+                  })
+                }
+              >
+                {editorFontOptions.map((font) => (
+                  <option key={font.id} value={font.id}>
+                    {font.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+
           <section className="provider-login-settings">
             <div className="provider-login-header">
               <div>
                 <h3>Provider connections</h3>
                 <p>
-                  DraftAgent never stores OpenAI or Anthropic passwords. It uses
+                  Scriptorium never stores OpenAI or Anthropic passwords. It uses
                   the authenticated local CLI sessions on this computer.
                 </p>
               </div>

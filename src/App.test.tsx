@@ -173,8 +173,8 @@ describe("App", () => {
     mockProjectFolder([chapter]);
     tauriApiMock.loadProjectEnv.mockResolvedValueOnce(
       [
-        "DRAFTAGENT_DEFAULT_PROVIDER=anthropic-subscription",
-        "DRAFTAGENT_ANTHROPIC_URL=https://claude.example/new",
+        "SCRIPTORIUM_DEFAULT_PROVIDER=anthropic-subscription",
+        "SCRIPTORIUM_ANTHROPIC_URL=https://claude.example/new",
       ].join("\n"),
     );
     mockMarkdownReads({

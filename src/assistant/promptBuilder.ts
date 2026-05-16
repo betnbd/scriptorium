@@ -72,7 +72,7 @@ function formatRole(role: AssistantMessage["role"]): string {
     return "Assistant";
   }
 
-  return "DraftAgent";
+  return "Scriptorium";
 }
 
 function formatMessageContent(content: string): string {

@@ -227,7 +227,7 @@ describe("createTauriApi", () => {
     await expect(api.pickProjectFolder()).resolves.toBeNull();
     await expect(api.readProjectTree("/novel")).resolves.toEqual([]);
     await expect(api.readMarkdownFile("/novel", "chapter.md")).rejects.toThrow(
-      "Desktop file access is available in the DraftAgent app.",
+      "Desktop file access is available in the Scriptorium app.",
     );
   });
 });

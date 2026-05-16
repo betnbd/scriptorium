@@ -375,7 +375,7 @@ function messageLabel(role: AssistantMessage["role"], assistantLabel: string) {
     return assistantLabel;
   }
 
-  return "DraftAgent";
+  return "Scriptorium";
 }
 
 function providerStatusLabel(

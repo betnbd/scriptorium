@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 
-test("renders the DraftAgent workspace", async ({ page }) => {
+test("renders the Scriptorium workspace", async ({ page }) => {
   await page.goto("/");
 
   await expect(page.getByRole("button", { name: "File", exact: true })).toBeVisible();
@@ -32,6 +32,25 @@ test("renders the DraftAgent workspace", async ({ page }) => {
   await page.getByRole("button", { name: "File", exact: true }).click();
   await expect(page.locator(".menu-popover")).toBeInViewport({ ratio: 0.95 });
   await expect(page.getByRole("button", { name: "Open Folder" }).first()).toBeVisible();
+  await page.getByRole("button", { name: "Themes", exact: true }).click();
+  await page.getByRole("button", { name: "Catppuccin Mocha" }).click();
+  await expect(page.locator(".app-shell")).toHaveAttribute(
+    "data-theme",
+    "catppuccin-mocha",
+  );
+  await expect(page.getByLabel("Provider")).toHaveCSS(
+    "background-color",
+    "rgb(49, 50, 68)",
+  );
+  await expect(page.getByLabel("Model")).toHaveCSS(
+    "background-color",
+    "rgb(49, 50, 68)",
+  );
+  await expect(page.getByLabel("Effort")).toHaveCSS(
+    "background-color",
+    "rgb(49, 50, 68)",
+  );
+  await page.getByRole("button", { name: "File", exact: true }).click();
   await page.getByRole("button", { name: "Settings" }).click();
   await expect(page.getByRole("dialog", { name: "Settings" })).toBeVisible();
   await expect(page.getByLabel("OpenAI model")).toBeVisible();

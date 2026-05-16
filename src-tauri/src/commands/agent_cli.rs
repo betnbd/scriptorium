@@ -474,7 +474,7 @@ fn temp_output_path(provider: &str) -> PathBuf {
         .unwrap_or_default();
 
     env::temp_dir().join(format!(
-        "draftagent-{provider}-{}-{nanos}.txt",
+        "scriptorium-{provider}-{}-{nanos}.txt",
         std::process::id()
     ))
 }
