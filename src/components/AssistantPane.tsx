@@ -54,6 +54,7 @@ export function AssistantPane({
   const [lmStudioModel, setLmStudioModel] = useState(settings.lmStudioModel);
   const [instruction, setInstruction] = useState("");
   const [importText, setImportText] = useState("");
+  const [runningElapsedSeconds, setRunningElapsedSeconds] = useState(0);
   const historyRef = useRef<HTMLDivElement | null>(null);
   const providerStatus =
     provider === "lm-studio" ? null : providerStatuses[provider];
@@ -91,7 +92,22 @@ export function AssistantPane({
     if (history) {
       history.scrollTop = history.scrollHeight;
     }
-  }, [messages.length, isRunning]);
+  }, [messages.length, isRunning, runningElapsedSeconds]);
+
+  useEffect(() => {
+    if (!isRunning) {
+      setRunningElapsedSeconds(0);
+      return;
+    }
+
+    setRunningElapsedSeconds(0);
+
+    const interval = window.setInterval(() => {
+      setRunningElapsedSeconds((seconds) => seconds + 10);
+    }, 10_000);
+
+    return () => window.clearInterval(interval);
+  }, [isRunning]);
 
   function submitMessage() {
     if (sendDisabled) {
@@ -145,7 +161,16 @@ export function AssistantPane({
         )}
         {isRunning ? (
           <div className="assistant-run-status" role="status">
-            Waiting for {assistantLabel}...
+            <div>{assistantLabel} is working.</div>
+            <ul>
+              {runningStatusLines({
+                assistantLabel,
+                elapsedSeconds: runningElapsedSeconds,
+                targetLabel,
+              }).map((line) => (
+                <li key={line}>{line}</li>
+              ))}
+            </ul>
           </div>
         ) : null}
       </div>
@@ -282,6 +307,44 @@ export function AssistantPane({
       </details>
     </aside>
   );
+}
+
+function runningStatusLines({
+  assistantLabel,
+  elapsedSeconds,
+  targetLabel,
+}: {
+  assistantLabel: string;
+  elapsedSeconds: number;
+  targetLabel: string | null;
+}) {
+  const target = targetLabel ?? "the open file";
+  const lines = ["Sent request to the terminal agent."];
+
+  if (elapsedSeconds >= 10) {
+    lines.push(`Reviewing ${target}.`);
+  }
+
+  if (elapsedSeconds >= 20) {
+    lines.push("Checking relevant project context.");
+  }
+
+  if (elapsedSeconds >= 30) {
+    lines.push(`Waiting for ${assistantLabel}'s response.`);
+  }
+
+  if (elapsedSeconds >= 60) {
+    lines.push(`${formatElapsedTime(elapsedSeconds)} elapsed.`);
+  }
+
+  return lines;
+}
+
+function formatElapsedTime(seconds: number) {
+  const minutes = Math.floor(seconds / 60);
+  const remainingSeconds = seconds % 60;
+
+  return `${minutes}:${remainingSeconds.toString().padStart(2, "0")}`;
 }
 
 function assistantDisplayLabel(provider: ProviderId) {

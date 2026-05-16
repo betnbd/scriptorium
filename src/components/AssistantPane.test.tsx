@@ -1,6 +1,6 @@
-import { cleanup, render, screen } from "@testing-library/react";
+import { act, cleanup, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { defaultSettings } from "../state/appReducer";
 import { AssistantPane } from "./AssistantPane";
 
@@ -19,6 +19,10 @@ function renderPane(overrides = {}) {
 }
 
 describe("AssistantPane", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   it("starts in chat mode and submits a clean in-app request", async () => {
     const user = userEvent.setup();
     const props = renderPane();
@@ -126,6 +130,36 @@ describe("AssistantPane", () => {
     expect(screen.getByText("Claude")).toBeInTheDocument();
     expect(screen.getByText("Can you read this document?")).toBeInTheDocument();
     expect(screen.queryByText(/Anthropic via Claude Code/)).not.toBeInTheDocument();
+  });
+
+  it("shows updating progress while a terminal agent is running", async () => {
+    vi.useFakeTimers();
+
+    renderPane({
+      settings: { ...defaultSettings, defaultProvider: "anthropic-subscription" },
+      isRunning: true,
+      targetLabel: "COMPANION_NOTES.md",
+    });
+
+    expect(screen.getByText("Claude is working.")).toBeInTheDocument();
+    expect(
+      screen.getByText("Sent request to the terminal agent."),
+    ).toBeInTheDocument();
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(10_000);
+    });
+
+    expect(screen.getByText("Reviewing COMPANION_NOTES.md.")).toBeInTheDocument();
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(20_000);
+    });
+
+    expect(
+      screen.getByText("Checking relevant project context."),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Waiting for Claude's response.")).toBeInTheDocument();
   });
 
   it("disables sending when there is no open file or no message", async () => {

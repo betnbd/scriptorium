@@ -464,6 +464,17 @@ select {
   line-height: 1.35;
 }
 
+.assistant-run-status ul {
+  margin: 7px 0 0;
+  padding-left: 17px;
+  color: #4c6d8e;
+  font-weight: 500;
+}
+
+.assistant-run-status li + li {
+  margin-top: 4px;
+}
+
 .file-tree {
   display: flex;
   min-height: 100%;

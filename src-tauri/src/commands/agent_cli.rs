@@ -8,7 +8,7 @@ use std::thread;
 use std::time::SystemTime;
 use std::time::{Duration, Instant};
 
-const AGENT_TIMEOUT: Duration = Duration::from_secs(240);
+const AGENT_TIMEOUT: Duration = Duration::from_secs(30 * 60);
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "kebab-case")]
@@ -328,7 +328,7 @@ fn run_agent_command(spec: AgentCommandSpec, root: &Path, prompt: &str) -> Resul
                     let _ = child.kill();
                     let _ = child.wait();
                     cleanup_output_path(spec.output_path.as_deref());
-                    return Err("Assistant request timed out.".to_string());
+                    return Err("Assistant request timed out after 30 minutes.".to_string());
                 }
                 thread::sleep(Duration::from_millis(100));
             }
