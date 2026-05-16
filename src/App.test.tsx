@@ -190,6 +190,46 @@ describe("App", () => {
     expect(screen.getByLabelText("Provider")).toHaveValue("anthropic-subscription");
   });
 
+  it("loads project env model and effort preferences when no local settings exist", async () => {
+    const user = userEvent.setup();
+    const chapter = fileNode("chapter-1.md");
+    mockProjectFolder([chapter]);
+    tauriApiMock.loadProjectEnv.mockResolvedValueOnce(
+      [
+        "DRAFTAGENT_DEFAULT_PROVIDER=anthropic-subscription",
+        "DRAFTAGENT_ANTHROPIC_MODEL=opus",
+        "DRAFTAGENT_ANTHROPIC_EFFORT=max",
+      ].join("\n"),
+    );
+    mockMarkdownReads({
+      "chapter-1.md": "# Chapter 1",
+    });
+
+    render(<App />);
+
+    await user.click(screen.getByRole("button", { name: "Open Folder" }));
+    await openAssistant(user);
+
+    expect(screen.getByLabelText("Provider")).toHaveValue("anthropic-subscription");
+    expect(screen.getByLabelText("Model")).toHaveValue("opus");
+    expect(screen.getByLabelText("Effort")).toHaveValue("max");
+  });
+
+  it("can reopen the default AI pane before a project is loaded", async () => {
+    const user = userEvent.setup();
+
+    render(<App />);
+
+    await user.click(screen.getByRole("button", { name: "Hide" }));
+    expect(screen.queryByLabelText("AI conversation")).not.toBeInTheDocument();
+    await openAssistant(user);
+
+    expect(screen.getByLabelText("AI conversation")).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Open a file to send" }),
+    ).toBeDisabled();
+  });
+
   it("keeps saved app-local settings ahead of project env preferences", async () => {
     const user = userEvent.setup();
     const chapter = fileNode("chapter-1.md");

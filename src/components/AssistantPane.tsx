@@ -154,6 +154,7 @@ export function AssistantPane({
         <label>
           Provider
           <select
+            aria-label="Provider"
             value={provider}
             onChange={(event) => setProvider(event.target.value as ProviderId)}
           >
@@ -171,11 +172,13 @@ export function AssistantPane({
           Model
           {provider === "lm-studio" ? (
             <input
+              aria-label="Model"
               value={lmStudioModel}
               onChange={(event) => setLmStudioModel(event.target.value)}
             />
           ) : (
             <select
+              aria-label="Model"
               value={selectedModel}
               onChange={(event) =>
                 provider === "openai-subscription"
@@ -196,6 +199,7 @@ export function AssistantPane({
           <label>
             Effort
             <select
+              aria-label="Effort"
               value={selectedEffort}
               onChange={(event) =>
                 provider === "openai-subscription"
@@ -215,6 +219,7 @@ export function AssistantPane({
         <label>
           Mode
           <select
+            aria-label="Mode"
             value={mode}
             onChange={(event) => setMode(event.target.value as AssistantMode)}
           >
@@ -228,6 +233,7 @@ export function AssistantPane({
         <label>
           Message
           <textarea
+            aria-label="Message"
             value={instruction}
             onChange={(event) => setInstruction(event.target.value)}
             rows={5}
@@ -249,6 +255,7 @@ export function AssistantPane({
         <label>
           Import response
           <textarea
+            aria-label="Import response"
             value={importText}
             onChange={(event) => setImportText(event.target.value)}
             rows={8}

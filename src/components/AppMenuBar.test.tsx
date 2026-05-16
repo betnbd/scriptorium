@@ -49,4 +49,14 @@ describe("AppMenuBar", () => {
     expect(props.onOpenAssistant).toHaveBeenCalledOnce();
     expect(props.onSettings).toHaveBeenCalledOnce();
   });
+
+  it("allows reopening AI before a project is loaded", async () => {
+    const user = userEvent.setup();
+    const props = renderMenu({ canUseProject: false });
+
+    await user.click(screen.getByText("AI"));
+    await user.click(screen.getByRole("button", { name: "New Conversation" }));
+
+    expect(props.onOpenAssistant).toHaveBeenCalledOnce();
+  });
 });

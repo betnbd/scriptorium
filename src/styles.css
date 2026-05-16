@@ -43,12 +43,13 @@ select {
   align-items: center;
   border-bottom: 1px solid #ededed;
   padding: 0 4px;
+  overflow-x: auto;
   background: #fafafa;
 }
 
 .menu-groups {
   display: flex;
-  min-width: 0;
+  min-width: max-content;
   flex: 1;
   align-items: center;
   gap: 2px;
@@ -129,14 +130,14 @@ select {
   min-height: 0;
   grid-template-columns:
     minmax(210px, var(--file-pane-width, 276px)) 6px
-    minmax(0, 1fr);
-  overflow: hidden;
+    minmax(360px, 1fr);
+  overflow: auto hidden;
 }
 
 .workspace-grid.has-assistant {
   grid-template-columns:
     minmax(210px, var(--file-pane-width, 276px)) 6px
-    minmax(0, 1fr) 6px
+    minmax(360px, 1fr) 6px
     minmax(320px, var(--assistant-pane-width, 380px));
 }
 
@@ -155,7 +156,7 @@ select {
 }
 
 .editor-pane {
-  padding: 0 28px;
+  padding: 0 clamp(18px, 3vw, 36px);
 }
 
 .pane-resizer {
@@ -188,8 +189,13 @@ select {
   align-items: flex-start;
   justify-content: space-between;
   gap: 12px;
+  min-width: 0;
   padding-bottom: 12px;
   border-bottom: 1px solid #e6e6e6;
+}
+
+.assistant-header > div:first-child {
+  min-width: 0;
 }
 
 .assistant-header h2 {
@@ -335,6 +341,7 @@ select {
   color: #333333;
   font: inherit;
   line-height: 1.45;
+  overflow-wrap: anywhere;
 }
 
 .assistant-empty,
@@ -382,7 +389,7 @@ select {
   height: 44px;
   align-items: end;
   gap: 10px;
-  padding: 0 36px 0 36px;
+  padding: 0 clamp(12px, 14%, 36px);
   border-bottom: 1px solid #ececec;
 }
 
@@ -561,6 +568,10 @@ select {
   border-bottom: 1px solid #eeeeee;
 }
 
+.editor-header > div:first-child {
+  min-width: 0;
+}
+
 .editor-header h1 {
   margin: 0;
   overflow: hidden;
@@ -639,6 +650,7 @@ select {
   color: #2b2b2b;
   font-size: var(--editor-font-size, 18px);
   line-height: 1.72;
+  overflow-wrap: anywhere;
 }
 
 .manuscript-editor .tiptap:focus-visible {
@@ -684,6 +696,7 @@ select {
   font: 400 var(--editor-font-size, 18px) / 1.72 ui-monospace,
     SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New",
     monospace;
+  overflow-wrap: anywhere;
 }
 
 .large-markdown-editor:focus-visible {
@@ -966,4 +979,35 @@ select {
   color: #6f1d1d;
   background: #ffffff;
   cursor: pointer;
+}
+
+@media (max-width: 860px) {
+  .workspace-grid {
+    grid-template-columns:
+      minmax(168px, var(--file-pane-width, 276px)) 6px
+      minmax(280px, 1fr);
+    overflow: hidden;
+  }
+
+  .workspace-grid.has-assistant {
+    grid-template-columns:
+      minmax(168px, var(--file-pane-width, 276px)) 6px
+      minmax(280px, 1fr) 6px
+      minmax(280px, var(--assistant-pane-width, 380px));
+  }
+
+  .file-tree {
+    padding-right: 12px;
+    padding-left: 12px;
+  }
+
+  .file-tree-tabs {
+    padding: 0 14px;
+  }
+
+  .editor-pane,
+  .assistant-pane {
+    padding-right: 14px;
+    padding-left: 14px;
+  }
 }

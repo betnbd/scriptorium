@@ -89,7 +89,7 @@ export function AppMenuBar({
           </button>
         </Menu>
         <Menu label="AI">
-          <button type="button" disabled={!canUseProject} onClick={onOpenAssistant}>
+          <button type="button" onClick={onOpenAssistant}>
             New Conversation
           </button>
           <button type="button" onClick={onSettings}>

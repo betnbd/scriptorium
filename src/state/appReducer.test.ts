@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import type { AppSettings } from "../types";
 import { appReducer, initialAppState } from "./appReducer";
 
 describe("appReducer", () => {
@@ -106,5 +107,31 @@ describe("appReducer", () => {
 
     expect(withError.errorMessage).toBe("Could not save.");
     expect(appReducer(withError, { type: "errorCleared" }).errorMessage).toBeNull();
+  });
+
+  it("merges newly added settings defaults into older saved settings", () => {
+    const legacySettings = {
+      defaultProvider: "openai-subscription",
+      openaiUrl: "https://chatgpt.local/",
+      anthropicUrl: "https://claude.local/",
+      lmStudioBaseUrl: "http://127.0.0.1:1234/v1",
+      lmStudioModel: "local-model",
+      editorFontSize: 18,
+      editorLineWidth: 760,
+      ignoreHidden: true,
+      ignoreLargeFiles: true,
+      ignoreBinaryFiles: true,
+      projectEnvEnabled: true,
+    } as AppSettings;
+
+    const state = appReducer(initialAppState, {
+      type: "settingsLoaded",
+      settings: legacySettings,
+    });
+
+    expect(state.settings.openaiModel).toBe("gpt-5.5");
+    expect(state.settings.openaiEffort).toBe("medium");
+    expect(state.settings.anthropicModel).toBe("sonnet");
+    expect(state.settings.anthropicEffort).toBe("medium");
   });
 });
