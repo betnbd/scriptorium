@@ -7,6 +7,10 @@ import type {
   ProviderId,
   ProviderStatus,
 } from "../types";
+import {
+  effortOptionsForProvider,
+  modelOptionsForProvider,
+} from "../assistant/providerOptions";
 
 export interface AssistantRequest {
   provider: ProviderId;
@@ -497,34 +501,4 @@ function effortForProvider({
   }
 
   return undefined;
-}
-
-function modelOptionsForProvider(provider: ProviderId) {
-  if (provider === "anthropic-subscription") {
-    return [
-      { value: "sonnet", label: "Sonnet" },
-      { value: "opus", label: "Opus" },
-    ];
-  }
-
-  return [
-    { value: "gpt-5.5", label: "GPT-5.5" },
-    { value: "gpt-5.4", label: "GPT-5.4" },
-    { value: "gpt-5.4-mini", label: "GPT-5.4 Mini" },
-    { value: "gpt-5.3-codex", label: "GPT-5.3 Codex" },
-    { value: "gpt-5.3-codex-spark", label: "GPT-5.3 Codex Spark" },
-  ];
-}
-
-function effortOptionsForProvider(provider: ProviderId) {
-  const common = [
-    { value: "low", label: "Low" },
-    { value: "medium", label: "Medium" },
-    { value: "high", label: "High" },
-    { value: "xhigh", label: "Extra high" },
-  ];
-
-  return provider === "anthropic-subscription"
-    ? [...common, { value: "max", label: "Max" }]
-    : common;
 }

@@ -6,7 +6,7 @@ Scriptorium is a local-first desktop writing workspace for drafting and revising
 
 - Open any local manuscript folder; no project template required.
 - Browse all files while editing one Markdown file at a time.
-- Write in a visual editor or switch to Markdown source mode.
+- Write in a visual editor or switch to Markdown source mode; both save as Markdown.
 - Save explicitly; manuscript changes are not autosaved.
 - Choose lightweight themes: Paper, Catppuccin, Gruvbox, Dracula, Nord, Solarized, Tokyo Night, Rose Pine, and Everforest.
 - Use OpenAI via a local Codex login, Anthropic via Claude Code, or LM Studio on localhost.
@@ -57,6 +57,10 @@ src-tauri/target/release/bundle/deb/Scriptorium_0.1.0_amd64.deb
 Open Settings, use **Provider connections**, and run the sign-in flow for the provider you want. Scriptorium does not store OpenAI or Anthropic passwords.
 
 Project-level preferences are disabled by default. If enabled, Scriptorium reads `.scriptorium.env` from the opened project folder. See [.scriptorium.env.example](.scriptorium.env.example) for supported keys.
+
+## Large Files
+
+For ordinary Markdown files, both **Visual** and **Markdown** modes are editable. For very large files, Scriptorium keeps the app responsive by making **Visual** mode a lightweight read-only preview and **Markdown** mode the editable source view.
 
 ## Documentation
 

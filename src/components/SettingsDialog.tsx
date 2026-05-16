@@ -2,6 +2,12 @@ import { useEffect, useState } from "react";
 import { CircleAlert, CircleCheck, RefreshCw, Terminal } from "lucide-react";
 import type { AppSettings, ProviderId, ProviderStatus } from "../types";
 import { editorFontOptions, themeOptions } from "../themeOptions";
+import {
+  anthropicEffortOptions,
+  anthropicModelOptions,
+  openaiEffortOptions,
+  openaiModelOptions,
+} from "../assistant/providerOptions";
 
 interface SettingsDialogProps {
   settings: AppSettings;
@@ -158,13 +164,11 @@ export function SettingsDialog({
                     setDraft({ ...draft, openaiModel: event.target.value })
                   }
                 >
-                  <option value="gpt-5.5">GPT-5.5</option>
-                  <option value="gpt-5.4">GPT-5.4</option>
-                  <option value="gpt-5.4-mini">GPT-5.4 Mini</option>
-                  <option value="gpt-5.3-codex">GPT-5.3 Codex</option>
-                  <option value="gpt-5.3-codex-spark">
-                    GPT-5.3 Codex Spark
-                  </option>
+                  {openaiModelOptions.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
                 </select>
               </label>
               <label>
@@ -175,10 +179,11 @@ export function SettingsDialog({
                     setDraft({ ...draft, openaiEffort: event.target.value })
                   }
                 >
-                  <option value="low">Low</option>
-                  <option value="medium">Medium</option>
-                  <option value="high">High</option>
-                  <option value="xhigh">Extra high</option>
+                  {openaiEffortOptions.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
                 </select>
               </label>
               <label>
@@ -189,8 +194,11 @@ export function SettingsDialog({
                     setDraft({ ...draft, anthropicModel: event.target.value })
                   }
                 >
-                  <option value="sonnet">Sonnet</option>
-                  <option value="opus">Opus</option>
+                  {anthropicModelOptions.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
                 </select>
               </label>
               <label>
@@ -201,11 +209,11 @@ export function SettingsDialog({
                     setDraft({ ...draft, anthropicEffort: event.target.value })
                   }
                 >
-                  <option value="low">Low</option>
-                  <option value="medium">Medium</option>
-                  <option value="high">High</option>
-                  <option value="xhigh">Extra high</option>
-                  <option value="max">Max</option>
+                  {anthropicEffortOptions.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
                 </select>
               </label>
             </div>

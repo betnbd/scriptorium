@@ -9,10 +9,12 @@
 
 ## Write
 
-- Use **Visual** mode for a clean writing view.
+- Use **Visual** mode for a clean writing view with Markdown syntax hidden.
 - Use **Markdown** mode when you want raw Markdown source.
 - Use **Ctrl+S** to save.
 - Use the top menus for headings, lists, links, emphasis, and layout controls.
+
+For very large Markdown files, **Visual** mode becomes a read-only rendered preview to keep scrolling responsive. Switch to **Markdown** mode to edit those files directly.
 
 ## Use The AI Pane
 

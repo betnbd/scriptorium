@@ -18,3 +18,7 @@ Scriptorium intentionally limits provider traffic:
 - Tauri shell permissions are not granted to the webview.
 
 When changing provider or filesystem code, add tests for path containment, provider destination validation, and no-surprise file edits.
+
+## Dependency Audit Notes
+
+The Linux Tauri stack currently inherits RustSec warnings for GTK/WebKitGTK transition crates through Tauri and Wry. Keep Tauri dependencies current and re-run `cargo audit --file src-tauri/Cargo.lock` before publishing release artifacts.
