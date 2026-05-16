@@ -7,11 +7,11 @@
   "author": "betnbd",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/betnbd/draftagent.git"
+    "url": "git+https://github.com/betnbd/scriptorium.git"
   },
-  "homepage": "https://github.com/betnbd/draftagent#readme",
+  "homepage": "https://github.com/betnbd/scriptorium#readme",
   "bugs": {
-    "url": "https://github.com/betnbd/draftagent/issues"
+    "url": "https://github.com/betnbd/scriptorium/issues"
   },
   "keywords": [
     "writing",

@@ -73,7 +73,13 @@ pub fn check_cli_agent_status(provider: CliAgentProvider) -> Result<CliAgentStat
 }
 
 #[tauri::command]
-pub fn start_cli_agent_login(provider: CliAgentProvider) -> Result<(), String> {
+pub async fn start_cli_agent_login(provider: CliAgentProvider) -> Result<(), String> {
+    tauri::async_runtime::spawn_blocking(move || start_cli_agent_login_blocking(provider))
+        .await
+        .map_err(|err| format!("Provider login could not finish: {err}"))?
+}
+
+fn start_cli_agent_login_blocking(provider: CliAgentProvider) -> Result<(), String> {
     let command = login_command_for_provider(&provider);
     let login_program = command
         .first()
@@ -92,12 +98,16 @@ pub fn start_cli_agent_login(provider: CliAgentProvider) -> Result<(), String> {
     );
     let args = terminal_args(&terminal, &script);
 
-    Command::new(&terminal)
+    let status = Command::new(&terminal)
         .args(args)
-        .spawn()
+        .status()
         .map_err(|err| format!("Could not open terminal login flow: {err}"))?;
 
-    Ok(())
+    if status.success() {
+        Ok(())
+    } else {
+        Err(format!("Provider login flow exited with status {status}."))
+    }
 }
 
 fn command_spec_for_provider(
@@ -192,7 +202,10 @@ fn parse_status_output(
         }
     }
 
-    let authenticated = success && stdout.to_lowercase().contains("logged in");
+    let authenticated = success
+        && stdout
+            .lines()
+            .any(|line| line.trim_start().to_lowercase().starts_with("logged in"));
     let detail = if authenticated {
         stdout.lines().next().unwrap_or("Connected.").to_string()
     } else if !stderr.is_empty() {
@@ -594,6 +607,20 @@ mod tests {
         assert!(status.installed);
         assert!(status.authenticated);
         assert_eq!(status.detail, "Logged in using ChatGPT");
+    }
+
+    #[test]
+    fn does_not_treat_codex_not_logged_in_text_as_authenticated() {
+        let status = parse_status_output(
+            CliAgentProvider::OpenaiSubscription,
+            true,
+            "Not logged in",
+            "",
+        );
+
+        assert!(status.installed);
+        assert!(!status.authenticated);
+        assert_eq!(status.detail, "Not logged in");
     }
 
     #[test]

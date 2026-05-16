@@ -38,13 +38,6 @@ pub struct Settings {
 #[tauri::command]
 pub fn load_settings(app: tauri::AppHandle) -> Result<Option<Settings>, String> {
     let path = settings_path(&app)?;
-    let path = if path.exists() {
-        path
-    } else if let Some(legacy_path) = legacy_settings_path(&app)? {
-        legacy_path
-    } else {
-        path
-    };
 
     if !path.exists() {
         return Ok(None);
@@ -93,18 +86,6 @@ pub fn save_settings(app: tauri::AppHandle, settings: Settings) -> Result<(), St
 fn settings_path(app: &tauri::AppHandle) -> Result<std::path::PathBuf, String> {
     let dir = app.path().app_config_dir().map_err(|err| err.to_string())?;
     Ok(dir.join("settings.json"))
-}
-
-fn legacy_settings_path(app: &tauri::AppHandle) -> Result<Option<std::path::PathBuf>, String> {
-    let current_dir = app.path().app_config_dir().map_err(|err| err.to_string())?;
-    let Some(config_parent) = current_dir.parent() else {
-        return Ok(None);
-    };
-    let legacy_path = config_parent
-        .join("app.draftagent.local")
-        .join("settings.json");
-
-    Ok(legacy_path.exists().then_some(legacy_path))
 }
 
 fn canonical_root(root: &Path) -> Result<std::path::PathBuf, String> {

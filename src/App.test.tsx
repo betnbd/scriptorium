@@ -166,6 +166,45 @@ describe("App", () => {
     expect(screen.queryByRole("dialog", { name: "Settings" })).not.toBeInTheDocument();
   });
 
+  it("refreshes provider status after a terminal login flow completes", async () => {
+    const user = userEvent.setup();
+    tauriApiMock.checkCliAgentStatus.mockImplementation(async (provider) => ({
+      provider,
+      installed: true,
+      authenticated: provider !== "openai-subscription",
+      detail:
+        provider === "openai-subscription"
+          ? "Codex is installed but not signed in."
+          : "Connected.",
+    }));
+    tauriApiMock.startCliAgentLogin.mockImplementation(async () => {
+      tauriApiMock.checkCliAgentStatus.mockImplementation(async (provider) => ({
+        provider,
+        installed: true,
+        authenticated: true,
+        detail:
+          provider === "openai-subscription"
+            ? "Logged in using ChatGPT"
+            : "Connected.",
+      }));
+    });
+
+    render(<App />);
+
+    await user.click(screen.getByRole("button", { name: "File" }));
+    await user.click(screen.getByRole("button", { name: "Settings" }));
+    expect(
+      await screen.findByText("Codex is installed but not signed in."),
+    ).toBeInTheDocument();
+
+    await user.click(screen.getAllByRole("button", { name: "Sign in" })[0]);
+
+    expect(tauriApiMock.startCliAgentLogin).toHaveBeenCalledWith(
+      "openai-subscription",
+    );
+    expect(await screen.findByText("Logged in using ChatGPT")).toBeInTheDocument();
+  });
+
   it("loads project env preferences when opening a folder", async () => {
     const user = userEvent.setup();
     const chapter = fileNode("chapter-1.md");
@@ -218,9 +257,9 @@ describe("App", () => {
     });
     tauriApiMock.loadProjectEnv.mockResolvedValueOnce(
       [
-        "DRAFTAGENT_DEFAULT_PROVIDER=anthropic-subscription",
-        "DRAFTAGENT_ANTHROPIC_MODEL=opus",
-        "DRAFTAGENT_ANTHROPIC_EFFORT=max",
+        "SCRIPTORIUM_DEFAULT_PROVIDER=anthropic-subscription",
+        "SCRIPTORIUM_ANTHROPIC_MODEL=opus",
+        "SCRIPTORIUM_ANTHROPIC_EFFORT=max",
       ].join("\n"),
     );
     mockMarkdownReads({
@@ -270,7 +309,7 @@ describe("App", () => {
     });
     mockProjectFolder([chapter]);
     tauriApiMock.loadProjectEnv.mockResolvedValueOnce(
-      "DRAFTAGENT_DEFAULT_PROVIDER=anthropic-subscription",
+      "SCRIPTORIUM_DEFAULT_PROVIDER=anthropic-subscription",
     );
     mockMarkdownReads({
       "chapter-1.md": "# Chapter 1",

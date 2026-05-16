@@ -473,6 +473,7 @@ export default function App() {
   async function startProviderLogin(provider: SubscriptionProviderId) {
     try {
       await tauriApi.startCliAgentLogin(provider);
+      await refreshProviderStatuses();
     } catch (error) {
       showError(error);
     }
@@ -1297,8 +1298,7 @@ function parseProjectEnvSettings(markdown: string): Partial<AppSettings> | null 
       }),
   );
   const parsed: Partial<AppSettings> = {};
-  const envValue = (key: string) =>
-    values[`SCRIPTORIUM_${key}`] ?? values[`DRAFTAGENT_${key}`];
+  const envValue = (key: string) => values[`SCRIPTORIUM_${key}`];
 
   const defaultProvider = envValue("DEFAULT_PROVIDER");
   if (isProviderId(defaultProvider)) {
