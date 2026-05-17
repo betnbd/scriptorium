@@ -6,6 +6,7 @@ import type { FileNode } from "./types";
 
 const tauriApiMock = vi.hoisted(() => ({
   pickProjectFolder: vi.fn(),
+  pickMarkdownFile: vi.fn(),
   readProjectTree: vi.fn(),
   readMarkdownFile: vi.fn(),
   writeMarkdownFile: vi.fn(),
@@ -82,6 +83,7 @@ vi.mock("./components/EditorPane", () => ({
 describe("App", () => {
   beforeEach(() => {
     tauriApiMock.pickProjectFolder.mockReset();
+    tauriApiMock.pickMarkdownFile.mockReset();
     tauriApiMock.readProjectTree.mockReset();
     tauriApiMock.readMarkdownFile.mockReset();
     tauriApiMock.writeMarkdownFile.mockReset();
@@ -252,6 +254,41 @@ describe("App", () => {
 
     expect(tauriApiMock.loadProjectEnv).not.toHaveBeenCalled();
     expect(tauriApiMock.readProjectTree).toHaveBeenCalledTimes(1);
+  });
+
+  it("opens a markdown file directly and loads its parent folder", async () => {
+    const user = userEvent.setup();
+    const chapter = fileNode("chapter-1.md");
+    const notes = fileNode("notes.md");
+    tauriApiMock.pickMarkdownFile.mockResolvedValueOnce({
+      rootPath: "/novel",
+      filePath: "chapter-1.md",
+    });
+    tauriApiMock.readProjectTree.mockResolvedValueOnce([chapter, notes]);
+    mockMarkdownReads({
+      "chapter-1.md": "# Chapter 1",
+      "notes.md": "# Notes",
+    });
+
+    render(<App />);
+
+    await user.click(screen.getByRole("button", { name: "File" }));
+    await user.click(screen.getByRole("button", { name: "Open File" }));
+
+    expect(tauriApiMock.pickMarkdownFile).toHaveBeenCalledOnce();
+    expect(tauriApiMock.readProjectTree).toHaveBeenCalledWith(
+      "/novel",
+      expect.objectContaining({ ignoreHidden: true }),
+    );
+    expect(tauriApiMock.readMarkdownFile).toHaveBeenCalledWith(
+      "/novel",
+      "chapter-1.md",
+    );
+    expect(await screen.findByRole("heading", { name: "chapter-1.md" })).toBeInTheDocument();
+    expect(screen.getByLabelText("Current markdown")).toHaveTextContent(
+      "# Chapter 1",
+    );
+    expect(screen.getByRole("button", { name: "Open notes.md" })).toBeInTheDocument();
   });
 
   it("loads project env model and effort preferences when no local settings exist", async () => {

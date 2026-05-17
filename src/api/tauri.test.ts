@@ -14,9 +14,36 @@ describe("createTauriApi", () => {
 
     const result = await api.pickProjectFolder();
 
-    expect(open).toHaveBeenCalledWith({ directory: true, multiple: false });
+    expect(open).toHaveBeenCalledWith({
+      directory: true,
+      multiple: false,
+      defaultPath: "/home/ben/Personal/03_Creative",
+    });
     expect(invoke).not.toHaveBeenCalled();
     expect(result).toBe("/novel");
+  });
+
+  it("opens a markdown file and returns its parent project path", async () => {
+    const open = vi
+      .fn()
+      .mockResolvedValue("/home/ben/Personal/03_Creative/chapter.md");
+    const api = createTauriApi({
+      invoke: vi.fn(),
+      open,
+      writeText: vi.fn(),
+    });
+
+    const result = await api.pickMarkdownFile();
+
+    expect(open).toHaveBeenCalledWith({
+      multiple: false,
+      defaultPath: "/home/ben/Personal/03_Creative",
+      filters: [{ name: "Markdown", extensions: ["md", "markdown"] }],
+    });
+    expect(result).toEqual({
+      rootPath: "/home/ben/Personal/03_Creative",
+      filePath: "chapter.md",
+    });
   });
 
   it("invokes file operation commands with typed arguments", async () => {
@@ -203,6 +230,7 @@ describe("createTauriApi", () => {
     await expect(api.loadSettings()).resolves.toBeNull();
     await expect(api.loadProjectEnv("/novel")).resolves.toBeNull();
     await expect(api.pickProjectFolder()).resolves.toBeNull();
+    await expect(api.pickMarkdownFile()).resolves.toBeNull();
     await expect(api.readProjectTree("/novel")).resolves.toEqual([]);
     await expect(api.readMarkdownFile("/novel", "chapter.md")).rejects.toThrow(
       "Desktop file access is available in the Scriptorium app.",

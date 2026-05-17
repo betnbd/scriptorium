@@ -1,4 +1,5 @@
 import { act, fireEvent, render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import type { ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { EditorPane } from "./EditorPane";
@@ -60,8 +61,10 @@ describe("EditorPane", () => {
     tiptap.lastOptions = undefined;
   });
 
-  it("renders an empty state when no file is open", () => {
+  it("renders folder and file actions when no file is open", async () => {
+    const user = userEvent.setup();
     const onOpenFolder = vi.fn();
+    const onOpenFile = vi.fn();
 
     render(
       <EditorPane
@@ -72,6 +75,7 @@ describe("EditorPane", () => {
         onChange={vi.fn()}
         onSave={vi.fn()}
         onOpenFolder={onOpenFolder}
+        onOpenFile={onOpenFile}
         onModeChange={vi.fn()}
       />,
     );
@@ -80,6 +84,15 @@ describe("EditorPane", () => {
     expect(
       screen.getByRole("button", { name: "Open manuscript folder" }),
     ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Open markdown file" }),
+    ).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Open manuscript folder" }));
+    await user.click(screen.getByRole("button", { name: "Open markdown file" }));
+
+    expect(onOpenFolder).toHaveBeenCalledOnce();
+    expect(onOpenFile).toHaveBeenCalledOnce();
   });
 
   it("renders dirty status and file metadata", () => {

@@ -2,7 +2,7 @@ import { Markdown } from "@tiptap/markdown";
 import { EditorContent, useEditor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Underline from "@tiptap/extension-underline";
-import { FolderOpen } from "lucide-react";
+import { FileText, FolderOpen } from "lucide-react";
 import type { ChangeEvent, ReactNode, SyntheticEvent } from "react";
 import {
   forwardRef,
@@ -52,6 +52,7 @@ interface EditorPaneProps {
   onChange: (markdown: string) => void;
   onSave: () => void;
   onOpenFolder?: () => void;
+  onOpenFile?: () => void;
   onModeChange: (mode: EditorMode) => void;
   onSelectionChange?: (markdown: string | null) => void;
 }
@@ -68,6 +69,7 @@ export const EditorPane = forwardRef<EditorPaneHandle, EditorPaneProps>(function
     onChange,
     onSave,
     onOpenFolder,
+    onOpenFile,
     onModeChange,
     onSelectionChange,
   },
@@ -84,6 +86,16 @@ export const EditorPane = forwardRef<EditorPaneHandle, EditorPaneProps>(function
           >
             <FolderOpen aria-hidden="true" size={16} />
             Open Folder
+          </button>
+        ) : null}
+        {onOpenFile ? (
+          <button
+            type="button"
+            aria-label="Open markdown file"
+            onClick={onOpenFile}
+          >
+            <FileText aria-hidden="true" size={16} />
+            Open File
           </button>
         ) : null}
       </section>

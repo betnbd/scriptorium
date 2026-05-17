@@ -3,12 +3,21 @@ import { writeText } from "@tauri-apps/plugin-clipboard-manager";
 import { open } from "@tauri-apps/plugin-dialog";
 import type { AppSettings, FileNode, OpenFile, ProviderStatus } from "../types";
 
+const DEFAULT_PROJECT_FOLDER = "/home/ben/Personal/03_Creative";
+
 type Invoke = <T>(command: string, args?: Record<string, unknown>) => Promise<T>;
 type OpenDialog = (options: {
-  directory: true;
+  directory?: boolean;
   multiple: false;
+  defaultPath?: string;
+  filters?: Array<{ name: string; extensions: string[] }>;
 }) => Promise<string | string[] | null>;
 type WriteText = (text: string) => Promise<void>;
+
+export interface PickedMarkdownFile {
+  rootPath: string;
+  filePath: string;
+}
 
 export interface TauriApiDeps {
   invoke: Invoke;
@@ -18,6 +27,7 @@ export interface TauriApiDeps {
 
 export interface TauriApi {
   pickProjectFolder(): Promise<string | null>;
+  pickMarkdownFile(): Promise<PickedMarkdownFile | null>;
   readProjectTree(
     rootPath: string,
     options?: Pick<
@@ -88,13 +98,43 @@ export function createTauriApi(deps: TauriApiDeps): TauriApi {
 
   return {
     async pickProjectFolder() {
-      const selected = await deps.open({ directory: true, multiple: false });
+      const selected = await deps.open({
+        directory: true,
+        multiple: false,
+        defaultPath: DEFAULT_PROJECT_FOLDER,
+      });
 
       if (typeof selected !== "string") {
         return null;
       }
 
       return selected;
+    },
+
+    async pickMarkdownFile() {
+      const selected = await deps.open({
+        multiple: false,
+        defaultPath: DEFAULT_PROJECT_FOLDER,
+        filters: [{ name: "Markdown", extensions: ["md", "markdown"] }],
+      });
+
+      if (typeof selected !== "string") {
+        return null;
+      }
+
+      const separatorIndex = Math.max(
+        selected.lastIndexOf("/"),
+        selected.lastIndexOf("\\"),
+      );
+
+      if (separatorIndex <= 0 || separatorIndex === selected.length - 1) {
+        return null;
+      }
+
+      return {
+        rootPath: selected.slice(0, separatorIndex),
+        filePath: selected.slice(separatorIndex + 1),
+      };
     },
 
     readProjectTree(rootPath, options) {

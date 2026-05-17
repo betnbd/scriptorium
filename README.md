@@ -4,7 +4,7 @@ Scriptorium is a local-first desktop writing workspace for drafting and revising
 
 ## Features
 
-- Open any local manuscript folder; no project template required.
+- Open any local manuscript folder or a single Markdown file; no project template required.
 - Browse all files while editing one Markdown file at a time.
 - Write in a visual editor or switch to Markdown source mode; both save as Markdown.
 - Save explicitly; manuscript changes are not autosaved.

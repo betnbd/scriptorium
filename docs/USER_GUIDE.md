@@ -7,6 +7,8 @@
 3. Select a folder containing Markdown manuscript files.
 4. Pick a file from the left pane.
 
+To start from one document instead, choose **File > Open File** and select a Markdown file. Scriptorium opens that file and uses its parent folder for the left pane.
+
 ## Install Or Update On Linux
 
 After building the Debian package, install it with:

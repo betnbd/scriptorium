@@ -11,6 +11,7 @@ interface AppMenuBarProps {
   canUseProject: boolean;
   editorMode: EditorMode;
   onOpenFolder: () => void;
+  onOpenFile: () => void;
   onOpenQuickly: () => void;
   onCreateFile: () => void;
   onCreateFolder: () => void;
@@ -32,6 +33,7 @@ export function AppMenuBar({
   canUseProject,
   editorMode,
   onOpenFolder,
+  onOpenFile,
   onOpenQuickly,
   onCreateFile,
   onCreateFolder,
@@ -105,6 +107,7 @@ export function AppMenuBar({
           />
           <MenuDivider />
           <MenuItem label="Open Folder" shortcut="Ctrl+O" onClick={onOpenFolder} />
+          <MenuItem label="Open File" onClick={onOpenFile} />
           <MenuItem
             disabled={!canUseProject}
             label="Open Quickly"

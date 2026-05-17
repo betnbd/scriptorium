@@ -10,6 +10,7 @@ function renderMenu(overrides = {}) {
     canUseProject: true,
     editorMode: "visual" as const,
     onOpenFolder: vi.fn(),
+    onOpenFile: vi.fn(),
     onOpenQuickly: vi.fn(),
     onCreateFile: vi.fn(),
     onCreateFolder: vi.fn(),
@@ -39,6 +40,19 @@ describe("AppMenuBar", () => {
     await user.click(screen.getByRole("button", { name: "Save" }));
 
     expect(props.onSave).toHaveBeenCalledOnce();
+  });
+
+  it("can open either a folder or a single markdown file", async () => {
+    const user = userEvent.setup();
+    const props = renderMenu();
+
+    await user.click(screen.getByText("File"));
+    await user.click(screen.getByRole("button", { name: "Open Folder" }));
+    await user.click(screen.getByText("File"));
+    await user.click(screen.getByRole("button", { name: "Open File" }));
+
+    expect(props.onOpenFolder).toHaveBeenCalledOnce();
+    expect(props.onOpenFile).toHaveBeenCalledOnce();
   });
 
   it("mirrors a Typora-style menu row with AI actions", async () => {

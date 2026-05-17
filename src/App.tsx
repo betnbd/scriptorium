@@ -213,26 +213,8 @@ export default function App() {
         return;
       }
 
-      const projectSettings = await loadProjectEnvSettings(
-        rootPath,
-        state.settings,
-      );
-      const effectiveSettings = projectSettings
-        ? {
-            ...state.settings,
-            ...projectSettings,
-            projectEnvEnabled: state.settings.projectEnvEnabled,
-          }
-        : state.settings;
-      const tree = await tauriApi.readProjectTree(
-        rootPath,
-        effectiveSettings,
-      );
-      const indexedDocuments = await buildMarkdownIndex(
-        rootPath,
-        tree,
-        effectiveSettings,
-      );
+      const { effectiveSettings, indexedDocuments, projectSettings, tree } =
+        await loadProject(rootPath);
 
       setAssistantSelection(null);
       dispatch({
@@ -247,6 +229,67 @@ export default function App() {
     } catch (error) {
       showError(error);
     }
+  }
+
+  async function openPickedFile() {
+    if (!shouldSwitchFile(state.isDirty, confirmDiscardChanges)) {
+      return;
+    }
+
+    try {
+      const picked = await tauriApi.pickMarkdownFile();
+
+      if (!picked) {
+        return;
+      }
+
+      const { effectiveSettings, indexedDocuments, projectSettings, tree } =
+        await loadProject(picked.rootPath);
+      const opened = await tauriApi.readMarkdownFile(
+        picked.rootPath,
+        picked.filePath,
+      );
+
+      setAssistantSelection(null);
+      dispatch({
+        type: "projectOpened",
+        rootPath: picked.rootPath,
+        tree,
+        indexedDocuments,
+      });
+      if (projectSettings) {
+        dispatch({ type: "settingsLoaded", settings: effectiveSettings });
+      }
+      dispatch({
+        type: "fileOpened",
+        file: opened.file,
+        markdown: opened.markdown,
+      });
+    } catch (error) {
+      showError(error);
+    }
+  }
+
+  async function loadProject(rootPath: string) {
+    const projectSettings = await loadProjectEnvSettings(
+      rootPath,
+      state.settings,
+    );
+    const effectiveSettings = projectSettings
+      ? {
+          ...state.settings,
+          ...projectSettings,
+          projectEnvEnabled: state.settings.projectEnvEnabled,
+        }
+      : state.settings;
+    const tree = await tauriApi.readProjectTree(rootPath, effectiveSettings);
+    const indexedDocuments = await buildMarkdownIndex(
+      rootPath,
+      tree,
+      effectiveSettings,
+    );
+
+    return { effectiveSettings, indexedDocuments, projectSettings, tree };
   }
 
   async function openFile(path: string) {
@@ -877,6 +920,7 @@ export default function App() {
         canUseProject={Boolean(state.rootPath)}
         editorMode={editorMode}
         onOpenFolder={openFolder}
+        onOpenFile={() => void openPickedFile()}
         onOpenQuickly={openQuickly}
         onCreateFile={() => void createFile("")}
         onCreateFolder={() => void createFolder("")}
@@ -929,6 +973,7 @@ export default function App() {
           }
           onSave={saveFile}
           onOpenFolder={openFolder}
+          onOpenFile={openPickedFile}
           onModeChange={setEditorMode}
           onSelectionChange={setAssistantSelection}
         />
