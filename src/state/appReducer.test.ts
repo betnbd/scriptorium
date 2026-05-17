@@ -135,5 +135,6 @@ describe("appReducer", () => {
     expect(state.settings.anthropicEffort).toBe("medium");
     expect(state.settings.themeId).toBe("paper");
     expect(state.settings.editorFont).toBe("literary");
+    expect(state.settings.appZoomLevel).toBe(0);
   });
 });

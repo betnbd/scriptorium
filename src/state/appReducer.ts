@@ -55,6 +55,7 @@ export const defaultSettings: AppSettings = {
   lmStudioModel: "local-model",
   themeId: "paper",
   editorFont: "literary",
+  appZoomLevel: 0,
   editorFontSize: 18,
   editorLineWidth: 760,
   ignoreHidden: true,

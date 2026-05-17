@@ -23,6 +23,8 @@ pub struct Settings {
     pub theme_id: String,
     #[serde(default = "default_editor_font")]
     pub editor_font: String,
+    #[serde(default)]
+    pub app_zoom_level: i8,
     pub editor_font_size: u16,
     pub editor_line_width: u16,
     #[serde(default = "default_true")]

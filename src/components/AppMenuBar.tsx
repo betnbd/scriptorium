@@ -23,6 +23,9 @@ interface AppMenuBarProps {
   onZoomIn: () => void;
   onZoomOut: () => void;
   onResetZoom: () => void;
+  onEditorZoomIn: () => void;
+  onEditorZoomOut: () => void;
+  onResetEditorZoom: () => void;
   themeId: ThemeId;
   onThemeChange: (themeId: ThemeId) => void;
   onToggleEditorMode: () => void;
@@ -48,6 +51,9 @@ export function AppMenuBar({
   onZoomIn,
   onZoomOut,
   onResetZoom,
+  onEditorZoomIn,
+  onEditorZoomOut,
+  onResetEditorZoom,
   themeId,
   onThemeChange,
   onToggleEditorMode,
@@ -293,6 +299,25 @@ export function AppMenuBar({
           <MenuItem label="Zoom In" shortcut="Ctrl++" onClick={onZoomIn} />
           <MenuItem label="Zoom Out" shortcut="Ctrl+-" onClick={onZoomOut} />
           <MenuItem label="Reset Zoom" shortcut="Ctrl+0" onClick={onResetZoom} />
+          <MenuDivider />
+          <MenuItem
+            disabled={!canUseEditor}
+            label="Editor Text Larger"
+            shortcut="Ctrl+Shift++"
+            onClick={onEditorZoomIn}
+          />
+          <MenuItem
+            disabled={!canUseEditor}
+            label="Editor Text Smaller"
+            shortcut="Ctrl+Shift+-"
+            onClick={onEditorZoomOut}
+          />
+          <MenuItem
+            disabled={!canUseEditor}
+            label="Reset Editor Text"
+            shortcut="Ctrl+Shift+0"
+            onClick={onResetEditorZoom}
+          />
           <MenuDivider />
           <MenuItem label="Reset Layout" onClick={onResetLayout} />
           <MenuItem

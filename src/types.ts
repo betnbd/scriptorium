@@ -73,6 +73,7 @@ export interface AppSettings {
   lmStudioModel: string;
   themeId: ThemeId;
   editorFont: EditorFont;
+  appZoomLevel: number;
   editorFontSize: number;
   editorLineWidth: number;
   ignoreHidden: boolean;

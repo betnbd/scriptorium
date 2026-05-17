@@ -75,7 +75,12 @@ export default function App() {
     relativePath: state.openFile?.relativePath ?? null,
     markdown: state.openMarkdown,
   };
+  const appUiFontSizes = uiFontSizesForZoom(state.settings.appZoomLevel);
   const editorSettingsStyle = {
+    "--ui-font-size-xs": `${appUiFontSizes.xs}px`,
+    "--ui-font-size-sm": `${appUiFontSizes.sm}px`,
+    "--ui-font-size-md": `${appUiFontSizes.md}px`,
+    "--ui-font-size-lg": `${appUiFontSizes.lg}px`,
     "--editor-font-size": `${state.settings.editorFontSize}px`,
     "--editor-line-width": `${state.settings.editorLineWidth}px`,
     "--file-pane-width": `${paneLayout.filePaneWidth}px`,
@@ -401,17 +406,26 @@ export default function App() {
       .catch(showError);
   }
 
-  function changeEditorZoom(delta: number) {
+  function changeAppZoom(delta: number) {
+    const nextLevel = clampAppZoomLevel(state.settings.appZoomLevel + delta);
+    saveZoomSetting({ appZoomLevel: nextLevel });
+  }
+
+  function resetAppZoom() {
+    saveZoomSetting({ appZoomLevel: defaultAppZoomLevel });
+  }
+
+  function changeEditorTextZoom(delta: number) {
     const nextSize = clampEditorFontSize(state.settings.editorFontSize + delta);
-    saveZoomSetting(nextSize);
+    saveZoomSetting({ editorFontSize: nextSize });
   }
 
-  function resetEditorZoom() {
-    saveZoomSetting(defaultEditorFontSize);
+  function resetEditorTextZoom() {
+    saveZoomSetting({ editorFontSize: defaultEditorFontSize });
   }
 
-  function saveZoomSetting(editorFontSize: number) {
-    const nextSettings = { ...state.settings, editorFontSize };
+  function saveZoomSetting(settingsPatch: Partial<AppSettings>) {
+    const nextSettings = { ...state.settings, ...settingsPatch };
 
     dispatch({ type: "settingsLoaded", settings: nextSettings });
     void tauriApi.saveSettings(nextSettings).catch(showError);
@@ -421,17 +435,29 @@ export default function App() {
     const key = event.key.toLowerCase();
 
     if (key === "=" || key === "+") {
-      changeEditorZoom(1);
+      if (event.shiftKey) {
+        changeEditorTextZoom(1);
+      } else {
+        changeAppZoom(1);
+      }
       return true;
     }
 
     if (key === "-") {
-      changeEditorZoom(-1);
+      if (event.shiftKey) {
+        changeEditorTextZoom(-1);
+      } else {
+        changeAppZoom(-1);
+      }
       return true;
     }
 
     if (key === "0") {
-      resetEditorZoom();
+      if (event.shiftKey) {
+        resetEditorTextZoom();
+      } else {
+        resetAppZoom();
+      }
       return true;
     }
 
@@ -965,9 +991,12 @@ export default function App() {
         onSettings={() => setIsSettingsOpen(true)}
         onReindex={() => void reindexProject()}
         onResetLayout={() => setPaneLayout(resetPaneLayout())}
-        onZoomIn={() => changeEditorZoom(1)}
-        onZoomOut={() => changeEditorZoom(-1)}
-        onResetZoom={resetEditorZoom}
+        onZoomIn={() => changeAppZoom(1)}
+        onZoomOut={() => changeAppZoom(-1)}
+        onResetZoom={resetAppZoom}
+        onEditorZoomIn={() => changeEditorTextZoom(1)}
+        onEditorZoomOut={() => changeEditorTextZoom(-1)}
+        onResetEditorZoom={resetEditorTextZoom}
         themeId={state.settings.themeId}
         onThemeChange={changeTheme}
         onToggleEditorMode={toggleEditorMode}
@@ -1105,12 +1134,30 @@ const subscriptionProviders: readonly SubscriptionProviderId[] = [
   "openai-subscription",
   "anthropic-subscription",
 ];
+const defaultAppZoomLevel = defaultSettings.appZoomLevel;
+const minAppZoomLevel = -2;
+const maxAppZoomLevel = 4;
 const defaultEditorFontSize = defaultSettings.editorFontSize;
 const minEditorFontSize = 12;
 const maxEditorFontSize = 28;
 
+function clampAppZoomLevel(zoomLevel: number) {
+  return Math.min(maxAppZoomLevel, Math.max(minAppZoomLevel, zoomLevel));
+}
+
 function clampEditorFontSize(fontSize: number) {
   return Math.min(maxEditorFontSize, Math.max(minEditorFontSize, fontSize));
+}
+
+function uiFontSizesForZoom(zoomLevel: number) {
+  const scale = 1 + clampAppZoomLevel(zoomLevel) * 0.08;
+
+  return {
+    xs: Math.round(13 * scale),
+    sm: Math.round(14 * scale),
+    md: Math.round(15 * scale),
+    lg: Math.round(19 * scale),
+  };
 }
 
 function messageFromError(error: unknown): string {

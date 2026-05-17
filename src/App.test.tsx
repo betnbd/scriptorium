@@ -452,7 +452,7 @@ describe("App", () => {
     });
   });
 
-  it("zooms the editor from keyboard shortcuts", async () => {
+  it("zooms the app and editor text from separate keyboard shortcuts", async () => {
     const user = userEvent.setup();
 
     render(<App />);
@@ -461,18 +461,25 @@ describe("App", () => {
     await user.keyboard("{Control>}= {/Control}");
 
     expect(tauriApiMock.saveSettings).toHaveBeenCalledWith(
-      expect.objectContaining({ editorFontSize: 19 }),
+      expect.objectContaining({ appZoomLevel: 1 }),
     );
 
     tauriApiMock.saveSettings.mockClear();
     await user.keyboard("{Control>}-{/Control}");
 
     expect(tauriApiMock.saveSettings).toHaveBeenCalledWith(
-      expect.objectContaining({ editorFontSize: 18 }),
+      expect.objectContaining({ appZoomLevel: 0 }),
     );
 
     tauriApiMock.saveSettings.mockClear();
-    await user.keyboard("{Control>}0{/Control}");
+    await user.keyboard("{Control>}{Shift>}= {/Shift}{/Control}");
+
+    expect(tauriApiMock.saveSettings).toHaveBeenCalledWith(
+      expect.objectContaining({ editorFontSize: 19 }),
+    );
+
+    tauriApiMock.saveSettings.mockClear();
+    await user.keyboard("{Control>}{Shift>}-{/Shift}{/Control}");
 
     expect(tauriApiMock.saveSettings).toHaveBeenCalledWith(
       expect.objectContaining({ editorFontSize: 18 }),
