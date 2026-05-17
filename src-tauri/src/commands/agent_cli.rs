@@ -202,12 +202,17 @@ fn parse_status_output(
         }
     }
 
-    let has_logged_in_line = stdout
+    let status_text = [stdout, stderr]
+        .into_iter()
+        .filter(|text| !text.is_empty())
+        .collect::<Vec<_>>()
+        .join("\n");
+    let has_logged_in_line = status_text
         .lines()
         .any(|line| line.trim_start().to_lowercase().starts_with("logged in"));
     let authenticated = has_logged_in_line;
     let detail = if authenticated {
-        stdout.lines().next().unwrap_or("Connected.").to_string()
+        status_text.lines().next().unwrap_or("Connected.").to_string()
     } else if !stderr.is_empty() {
         stderr.to_string()
     } else if !stdout.is_empty() {
@@ -616,6 +621,20 @@ mod tests {
             false,
             "Logged in using ChatGPT",
             "",
+        );
+
+        assert!(status.installed);
+        assert!(status.authenticated);
+        assert_eq!(status.detail, "Logged in using ChatGPT");
+    }
+
+    #[test]
+    fn treats_codex_logged_in_stderr_as_authenticated() {
+        let status = parse_status_output(
+            CliAgentProvider::OpenaiSubscription,
+            true,
+            "",
+            "Logged in using ChatGPT",
         );
 
         assert!(status.installed);
