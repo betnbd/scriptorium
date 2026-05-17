@@ -19,6 +19,9 @@ function renderMenu(overrides = {}) {
     onSettings: vi.fn(),
     onReindex: vi.fn(),
     onResetLayout: vi.fn(),
+    onZoomIn: vi.fn(),
+    onZoomOut: vi.fn(),
+    onResetZoom: vi.fn(),
     themeId: "paper" as const,
     onThemeChange: vi.fn(),
     onToggleEditorMode: vi.fn(),
@@ -113,5 +116,21 @@ describe("AppMenuBar", () => {
     await user.click(screen.getByRole("button", { name: "Markdown Source" }));
 
     expect(props.onToggleEditorMode).toHaveBeenCalledOnce();
+  });
+
+  it("routes zoom commands from the view menu", async () => {
+    const user = userEvent.setup();
+    const props = renderMenu();
+
+    await user.click(screen.getByText("View"));
+    await user.click(screen.getByRole("button", { name: "Zoom In" }));
+    await user.click(screen.getByText("View"));
+    await user.click(screen.getByRole("button", { name: "Zoom Out" }));
+    await user.click(screen.getByText("View"));
+    await user.click(screen.getByRole("button", { name: "Reset Zoom" }));
+
+    expect(props.onZoomIn).toHaveBeenCalledOnce();
+    expect(props.onZoomOut).toHaveBeenCalledOnce();
+    expect(props.onResetZoom).toHaveBeenCalledOnce();
   });
 });

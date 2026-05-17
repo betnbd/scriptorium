@@ -49,6 +49,10 @@ interface EditorPaneProps {
   mode: EditorMode;
   isDirty: boolean;
   isAiEditStaged?: boolean;
+  stagedDiff?: {
+    previousMarkdown: string;
+    nextMarkdown: string;
+  } | null;
   onChange: (markdown: string) => void;
   onSave: () => void;
   onOpenFolder?: () => void;
@@ -66,6 +70,7 @@ export const EditorPane = forwardRef<EditorPaneHandle, EditorPaneProps>(function
     mode,
     isDirty,
     isAiEditStaged = false,
+    stagedDiff = null,
     onChange,
     onSave,
     onOpenFolder,
@@ -111,6 +116,7 @@ export const EditorPane = forwardRef<EditorPaneHandle, EditorPaneProps>(function
         mode={mode}
         isDirty={isDirty}
         isAiEditStaged={isAiEditStaged}
+        stagedDiff={stagedDiff}
         onChange={onChange}
         onSave={onSave}
         onModeChange={onModeChange}
@@ -128,6 +134,7 @@ export const EditorPane = forwardRef<EditorPaneHandle, EditorPaneProps>(function
         mode={mode}
         isDirty={isDirty}
         isAiEditStaged={isAiEditStaged}
+        stagedDiff={stagedDiff}
         onChange={onChange}
         onSave={onSave}
         onModeChange={onModeChange}
@@ -144,6 +151,7 @@ export const EditorPane = forwardRef<EditorPaneHandle, EditorPaneProps>(function
       mode={mode}
       isDirty={isDirty}
       isAiEditStaged={isAiEditStaged}
+      stagedDiff={stagedDiff}
       onChange={onChange}
       onSave={onSave}
       onModeChange={onModeChange}
@@ -160,6 +168,7 @@ const RichMarkdownEditor = forwardRef<EditorPaneHandle, EditorPaneProps & {
   mode,
   isDirty,
   isAiEditStaged,
+  stagedDiff,
   onChange,
   onSave,
   onModeChange,
@@ -246,7 +255,14 @@ const RichMarkdownEditor = forwardRef<EditorPaneHandle, EditorPaneProps & {
         onSave={onSave}
         onModeChange={onModeChange}
       />
-      <EditorContent editor={editor} className="manuscript-editor" />
+      {stagedDiff ? (
+        <StagedDiffView
+          previousMarkdown={stagedDiff.previousMarkdown}
+          nextMarkdown={stagedDiff.nextMarkdown}
+        />
+      ) : (
+        <EditorContent editor={editor} className="manuscript-editor" />
+      )}
     </section>
   );
 });
@@ -264,6 +280,7 @@ const SourceMarkdownEditor = forwardRef<
     mode,
     isDirty,
     isAiEditStaged,
+    stagedDiff,
     onChange,
     onSave,
     onModeChange,
@@ -318,18 +335,25 @@ const SourceMarkdownEditor = forwardRef<
       >
         {children}
       </EditorHeader>
-      <textarea
-        aria-label="Markdown source editor"
-        className="source-markdown-editor"
-        ref={editorRef}
-        value={markdown}
-        onChange={(event: ChangeEvent<HTMLTextAreaElement>) =>
-          onChange(event.currentTarget.value)
-        }
-        onKeyUp={updateSelection}
-        onPointerUp={updateSelection}
-        spellCheck
-      />
+      {stagedDiff ? (
+        <StagedDiffView
+          previousMarkdown={stagedDiff.previousMarkdown}
+          nextMarkdown={stagedDiff.nextMarkdown}
+        />
+      ) : (
+        <textarea
+          aria-label="Markdown source editor"
+          className="source-markdown-editor"
+          ref={editorRef}
+          value={markdown}
+          onChange={(event: ChangeEvent<HTMLTextAreaElement>) =>
+            onChange(event.currentTarget.value)
+          }
+          onKeyUp={updateSelection}
+          onPointerUp={updateSelection}
+          spellCheck
+        />
+      )}
     </section>
   );
 });
@@ -363,6 +387,7 @@ const LargeVisualPreview = forwardRef<
     mode,
     isDirty,
     isAiEditStaged,
+    stagedDiff,
     onSave,
     onModeChange,
     onSelectionChange,
@@ -410,19 +435,105 @@ const LargeVisualPreview = forwardRef<
       >
         <span className="status-large">Large visual preview</span>
       </EditorHeader>
-      <div
-        aria-label="Large file visual preview"
-        className="large-visual-preview"
-        onKeyUp={updateSelection}
-        onPointerUp={updateSelection}
-        ref={previewRef}
-        tabIndex={0}
-      >
-        {renderLargeMarkdownPreview(markdown)}
-      </div>
+      {stagedDiff ? (
+        <StagedDiffView
+          previousMarkdown={stagedDiff.previousMarkdown}
+          nextMarkdown={stagedDiff.nextMarkdown}
+        />
+      ) : (
+        <div
+          aria-label="Large file visual preview"
+          className="large-visual-preview"
+          onKeyUp={updateSelection}
+          onPointerUp={updateSelection}
+          ref={previewRef}
+          tabIndex={0}
+        >
+          {renderLargeMarkdownPreview(markdown)}
+        </div>
+      )}
     </section>
   );
 });
+
+function StagedDiffView({
+  previousMarkdown,
+  nextMarkdown,
+}: {
+  previousMarkdown: string;
+  nextMarkdown: string;
+}) {
+  return (
+    <div className="staged-diff-view" aria-label="Staged edit diff">
+      <div className="staged-diff-legend" aria-hidden="true">
+        <span className="diff-legend-original">Original</span>
+        <span className="diff-legend-revised">Revised</span>
+      </div>
+      <div className="staged-diff-lines">
+        {buildStagedDiffRows(previousMarkdown, nextMarkdown).map((row, index) => (
+          <div className={`staged-diff-row is-${row.kind}`} key={index}>
+            <span className="staged-diff-marker">{row.marker}</span>
+            <span className="staged-diff-label">{row.label}</span>
+            <span className="staged-diff-text">
+              {row.text || "\u00a0"}
+            </span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function buildStagedDiffRows(previousMarkdown: string, nextMarkdown: string) {
+  const previousLines = previousMarkdown.replace(/\r\n/g, "\n").split("\n");
+  const nextLines = nextMarkdown.replace(/\r\n/g, "\n").split("\n");
+  const maxLength = Math.max(previousLines.length, nextLines.length);
+  const rows: Array<{
+    kind: "same" | "removed" | "added";
+    label: string;
+    marker: string;
+    text: string;
+  }> = [];
+
+  for (let index = 0; index < maxLength; index += 1) {
+    const previousLine = previousLines[index];
+    const nextLine = nextLines[index];
+
+    if (previousLine === nextLine) {
+      if (previousLine !== undefined) {
+        rows.push({
+          kind: "same",
+          label: "",
+          marker: "",
+          text: cleanInlineMarkdown(previousLine),
+        });
+      }
+      continue;
+    }
+
+    if (previousLine !== undefined) {
+      rows.push({
+        kind: "removed",
+        label: "Original",
+        marker: "-",
+        text: cleanInlineMarkdown(previousLine),
+      });
+    }
+
+    if (nextLine !== undefined) {
+      rows.push({
+        kind: "added",
+        label: "Revised",
+        marker: "+",
+        text: cleanInlineMarkdown(nextLine),
+      });
+    }
+  }
+
+  return rows.length
+    ? rows
+    : [{ kind: "same" as const, label: "", marker: "", text: "No text changes." }];
+}
 
 function EditorHeader({
   openFile,

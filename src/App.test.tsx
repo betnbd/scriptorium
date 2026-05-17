@@ -452,6 +452,33 @@ describe("App", () => {
     });
   });
 
+  it("zooms the editor from keyboard shortcuts", async () => {
+    const user = userEvent.setup();
+
+    render(<App />);
+
+    await waitFor(() => expect(tauriApiMock.loadSettings).toHaveBeenCalled());
+    await user.keyboard("{Control>}= {/Control}");
+
+    expect(tauriApiMock.saveSettings).toHaveBeenCalledWith(
+      expect.objectContaining({ editorFontSize: 19 }),
+    );
+
+    tauriApiMock.saveSettings.mockClear();
+    await user.keyboard("{Control>}-{/Control}");
+
+    expect(tauriApiMock.saveSettings).toHaveBeenCalledWith(
+      expect.objectContaining({ editorFontSize: 18 }),
+    );
+
+    tauriApiMock.saveSettings.mockClear();
+    await user.keyboard("{Control>}0{/Control}");
+
+    expect(tauriApiMock.saveSettings).toHaveBeenCalledWith(
+      expect.objectContaining({ editorFontSize: 18 }),
+    );
+  });
+
   it("closes the editor when the open file is deleted", async () => {
     const user = userEvent.setup();
     const chapter = fileNode("chapter-1.md");

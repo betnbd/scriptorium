@@ -20,6 +20,9 @@ interface AppMenuBarProps {
   onSettings: () => void;
   onReindex: () => void;
   onResetLayout: () => void;
+  onZoomIn: () => void;
+  onZoomOut: () => void;
+  onResetZoom: () => void;
   themeId: ThemeId;
   onThemeChange: (themeId: ThemeId) => void;
   onToggleEditorMode: () => void;
@@ -42,6 +45,9 @@ export function AppMenuBar({
   onSettings,
   onReindex,
   onResetLayout,
+  onZoomIn,
+  onZoomOut,
+  onResetZoom,
   themeId,
   onThemeChange,
   onToggleEditorMode,
@@ -283,6 +289,11 @@ export function AppMenuBar({
             shortcut="Ctrl+/"
             onClick={onToggleEditorMode}
           />
+          <MenuDivider />
+          <MenuItem label="Zoom In" shortcut="Ctrl++" onClick={onZoomIn} />
+          <MenuItem label="Zoom Out" shortcut="Ctrl+-" onClick={onZoomOut} />
+          <MenuItem label="Reset Zoom" shortcut="Ctrl+0" onClick={onResetZoom} />
+          <MenuDivider />
           <MenuItem label="Reset Layout" onClick={onResetLayout} />
           <MenuItem
             disabled={!canUseProject}

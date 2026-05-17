@@ -19,7 +19,7 @@ import { FileTree } from "./components/FileTree";
 import { SettingsDialog } from "./components/SettingsDialog";
 import { buildIndex, selectRelevantContext } from "./context/indexer";
 import { normalizeMarkdownForSave } from "./editor/markdown";
-import { appReducer, initialAppState } from "./state/appReducer";
+import { appReducer, defaultSettings, initialAppState } from "./state/appReducer";
 import { shouldSwitchFile } from "./state/guards";
 import {
   defaultPaneLayout,
@@ -51,6 +51,7 @@ export default function App() {
   );
   const [pendingAssistantEdit, setPendingAssistantEdit] =
     useState<AssistantPendingEdit | null>(null);
+  const [isPendingDiffVisible, setIsPendingDiffVisible] = useState(false);
   const [assistantMode, setAssistantMode] = useState<AssistantMode>("chat");
   const [isAssistantOpen, setIsAssistantOpen] = useState(true);
   const [assistantSessionId, setAssistantSessionId] = useState(0);
@@ -177,6 +178,7 @@ export default function App() {
     state.openFile,
     state.openMarkdown,
     state.rootPath,
+    state.settings,
     state.tree,
   ]);
 
@@ -399,8 +401,39 @@ export default function App() {
       .catch(showError);
   }
 
+  function changeEditorZoom(delta: number) {
+    const nextSize = clampEditorFontSize(state.settings.editorFontSize + delta);
+    saveZoomSetting(nextSize);
+  }
+
+  function resetEditorZoom() {
+    saveZoomSetting(defaultEditorFontSize);
+  }
+
+  function saveZoomSetting(editorFontSize: number) {
+    const nextSettings = { ...state.settings, editorFontSize };
+
+    dispatch({ type: "settingsLoaded", settings: nextSettings });
+    void tauriApi.saveSettings(nextSettings).catch(showError);
+  }
+
   function handleKeyboardShortcut(event: KeyboardEvent): boolean {
     const key = event.key.toLowerCase();
+
+    if (key === "=" || key === "+") {
+      changeEditorZoom(1);
+      return true;
+    }
+
+    if (key === "-") {
+      changeEditorZoom(-1);
+      return true;
+    }
+
+    if (key === "0") {
+      resetEditorZoom();
+      return true;
+    }
 
     if (key === "s") {
       if (state.isDirty) {
@@ -838,6 +871,7 @@ export default function App() {
           previousMarkdown: currentMarkdown,
           nextMarkdown,
         });
+        setIsPendingDiffVisible(true);
       }
 
       dispatch({
@@ -875,6 +909,7 @@ export default function App() {
       },
     });
     setPendingAssistantEdit(null);
+    setIsPendingDiffVisible(false);
   }
 
   function rejectPendingAssistantEdit() {
@@ -894,6 +929,7 @@ export default function App() {
       },
     });
     setPendingAssistantEdit(null);
+    setIsPendingDiffVisible(false);
   }
 
   return (
@@ -929,6 +965,9 @@ export default function App() {
         onSettings={() => setIsSettingsOpen(true)}
         onReindex={() => void reindexProject()}
         onResetLayout={() => setPaneLayout(resetPaneLayout())}
+        onZoomIn={() => changeEditorZoom(1)}
+        onZoomOut={() => changeEditorZoom(-1)}
+        onResetZoom={resetEditorZoom}
         themeId={state.settings.themeId}
         onThemeChange={changeTheme}
         onToggleEditorMode={toggleEditorMode}
@@ -968,6 +1007,14 @@ export default function App() {
           mode={editorMode}
           isDirty={state.isDirty}
           isAiEditStaged={Boolean(pendingAssistantEdit)}
+          stagedDiff={
+            pendingAssistantEdit && isPendingDiffVisible
+              ? {
+                  previousMarkdown: pendingAssistantEdit.previousMarkdown,
+                  nextMarkdown: pendingAssistantEdit.nextMarkdown,
+                }
+              : null
+          }
           onChange={(markdown) =>
             dispatch({ type: "editorChanged", markdown })
           }
@@ -991,6 +1038,7 @@ export default function App() {
               isRunning={isAssistantRunning}
               messages={state.assistantMessages}
               pendingEdit={pendingAssistantEdit}
+              isPendingDiffVisible={isPendingDiffVisible}
               providerStatuses={providerStatuses}
               targetLabel={
                 state.openFile
@@ -1005,6 +1053,7 @@ export default function App() {
               onImport={importAssistantResponse}
               onApplyPendingEdit={applyPendingAssistantEdit}
               onRejectPendingEdit={rejectPendingAssistantEdit}
+              onPendingDiffVisibilityChange={setIsPendingDiffVisible}
               onClose={() => setIsAssistantOpen(false)}
             />
           </>
@@ -1056,6 +1105,13 @@ const subscriptionProviders: readonly SubscriptionProviderId[] = [
   "openai-subscription",
   "anthropic-subscription",
 ];
+const defaultEditorFontSize = defaultSettings.editorFontSize;
+const minEditorFontSize = 12;
+const maxEditorFontSize = 28;
+
+function clampEditorFontSize(fontSize: number) {
+  return Math.min(maxEditorFontSize, Math.max(minEditorFontSize, fontSize));
+}
 
 function messageFromError(error: unknown): string {
   return error instanceof Error ? error.message : String(error);

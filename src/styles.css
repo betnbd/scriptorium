@@ -557,6 +557,13 @@ select {
   gap: 8px;
 }
 
+.assistant-pending-note {
+  margin: 0;
+  color: #666666;
+  font-size: var(--ui-font-size-xs);
+  line-height: 1.35;
+}
+
 .assistant-pending-diff {
   max-height: 180px;
   overflow: auto;
@@ -999,6 +1006,9 @@ select {
 }
 
 .editor-header {
+  position: sticky;
+  top: 0;
+  z-index: 5;
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
@@ -1008,6 +1018,7 @@ select {
   margin: 0 auto;
   padding: 24px 0 14px;
   border-bottom: 1px solid #eeeeee;
+  background: var(--editor-bg, #ffffff);
 }
 
 .editor-header > div:first-child {
@@ -1163,6 +1174,100 @@ select {
   line-height: 1.72;
   overflow-wrap: anywhere;
   user-select: text;
+}
+
+.staged-diff-view {
+  max-width: min(980px, calc(100% - 48px));
+  min-height: calc(100vh - 170px);
+  margin: 0 auto;
+  padding: 24px 0 72px;
+  color: #2b2b2b;
+  font-family: var(--editor-prose-font-family);
+  font-size: var(--editor-font-size, 18px);
+  line-height: 1.58;
+}
+
+.staged-diff-legend {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 14px;
+  font-family: var(--ui-font-family);
+  font-size: var(--ui-font-size-xs);
+  font-weight: 750;
+}
+
+.staged-diff-legend span,
+.staged-diff-label {
+  border-radius: 999px;
+  padding: 3px 8px;
+}
+
+.diff-legend-original,
+.staged-diff-row.is-removed .staged-diff-label {
+  color: #8a2d2d;
+  background: #f7dddd;
+}
+
+.diff-legend-revised,
+.staged-diff-row.is-added .staged-diff-label {
+  color: #1d6242;
+  background: #dff2e6;
+}
+
+.staged-diff-lines {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.staged-diff-row {
+  display: grid;
+  grid-template-columns: 26px 86px minmax(0, 1fr);
+  gap: 10px;
+  align-items: baseline;
+  border-left: 3px solid transparent;
+  border-radius: 5px;
+  padding: 7px 10px;
+}
+
+.staged-diff-row.is-same {
+  color: #555555;
+}
+
+.staged-diff-row.is-removed {
+  border-left-color: #c35555;
+  background: #fff0f0;
+}
+
+.staged-diff-row.is-added {
+  border-left-color: #4a9b6a;
+  background: #eef9f2;
+}
+
+.staged-diff-marker {
+  color: #888888;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+    "Liberation Mono", "Courier New", monospace;
+  font-weight: 800;
+  text-align: center;
+}
+
+.staged-diff-label {
+  justify-self: start;
+  color: #777777;
+  font-family: var(--ui-font-family);
+  font-size: var(--ui-font-size-xs);
+  font-weight: 750;
+}
+
+.staged-diff-row.is-same .staged-diff-label {
+  visibility: hidden;
+}
+
+.staged-diff-text {
+  min-width: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
 
 .manuscript-editor .tiptap {
@@ -1648,6 +1753,7 @@ select {
 
 [data-theme] .editor-pane,
 [data-theme] .editor-pane-empty,
+[data-theme] .staged-diff-view,
 [data-theme] .manuscript-editor .tiptap,
 [data-theme] .source-markdown-editor {
   color: var(--text);

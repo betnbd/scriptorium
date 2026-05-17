@@ -11,7 +11,6 @@ import {
   effortOptionsForProvider,
   modelOptionsForProvider,
 } from "../assistant/providerOptions";
-import { formatLocalDiff } from "../assistant/localDiff";
 
 export interface AssistantRequest {
   provider: ProviderId;
@@ -27,6 +26,7 @@ interface AssistantPaneProps {
   canSubmit?: boolean;
   isRunning?: boolean;
   pendingEdit?: AssistantPendingEdit | null;
+  isPendingDiffVisible?: boolean;
   providerStatuses?: Partial<
     Record<
       Extract<ProviderId, "openai-subscription" | "anthropic-subscription">,
@@ -38,6 +38,7 @@ interface AssistantPaneProps {
   onImport: (response: string, mode: AssistantMode) => void;
   onApplyPendingEdit?: () => void;
   onRejectPendingEdit?: () => void;
+  onPendingDiffVisibilityChange?: (isVisible: boolean) => void;
   onClose: () => void;
 }
 
@@ -47,12 +48,14 @@ export function AssistantPane({
   canSubmit = true,
   isRunning = false,
   pendingEdit = null,
+  isPendingDiffVisible = false,
   providerStatuses = {},
   targetLabel = null,
   onSubmit,
   onImport,
   onApplyPendingEdit,
   onRejectPendingEdit,
+  onPendingDiffVisibilityChange,
   onClose,
 }: AssistantPaneProps) {
   const [provider, setProvider] = useState<ProviderId>(settings.defaultProvider);
@@ -66,7 +69,6 @@ export function AssistantPane({
   const [lmStudioModel, setLmStudioModel] = useState(settings.lmStudioModel);
   const [instruction, setInstruction] = useState("");
   const [importText, setImportText] = useState("");
-  const [showPendingDiff, setShowPendingDiff] = useState(false);
   const [runningElapsedSeconds, setRunningElapsedSeconds] = useState(0);
   const historyRef = useRef<HTMLDivElement | null>(null);
   const providerStatus =
@@ -127,10 +129,6 @@ export function AssistantPane({
 
     return () => window.clearInterval(interval);
   }, [isRunning]);
-
-  useEffect(() => {
-    setShowPendingDiff(false);
-  }, [pendingEdit]);
 
   function submitMessage() {
     if (sendDisabled) {
@@ -207,9 +205,11 @@ export function AssistantPane({
           <div className="assistant-pending-actions">
             <button
               type="button"
-              onClick={() => setShowPendingDiff((isVisible) => !isVisible)}
+              onClick={() =>
+                onPendingDiffVisibilityChange?.(!isPendingDiffVisible)
+              }
             >
-              {showPendingDiff ? "Hide diff" : "Show diff"}
+              {isPendingDiffVisible ? "Hide diff" : "Show diff"}
             </button>
             <button type="button" onClick={onRejectPendingEdit}>
               Reject edits
@@ -218,13 +218,10 @@ export function AssistantPane({
               Keep edits
             </button>
           </div>
-          {showPendingDiff ? (
-            <pre className="assistant-pending-diff">
-              {formatLocalDiff(
-                pendingEdit.previousMarkdown,
-                pendingEdit.nextMarkdown,
-              )}
-            </pre>
+          {isPendingDiffVisible ? (
+            <p className="assistant-pending-note">
+              Diff shown in the editor pane.
+            </p>
           ) : null}
         </section>
       ) : null}

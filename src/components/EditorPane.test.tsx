@@ -133,6 +133,36 @@ describe("EditorPane", () => {
     expect(screen.getByText("Unsaved")).toBeInTheDocument();
   });
 
+  it("shows staged edit differences in the main editor pane", () => {
+    render(
+      <EditorPane
+        openFile={{ relativePath: "chapters/chapter-1.md", name: "chapter-1.md" }}
+        markdown="# Chapter 1\n\nThe red door opened."
+        mode="visual"
+        isDirty={true}
+        isAiEditStaged={true}
+        stagedDiff={{
+          previousMarkdown: "# Chapter 1\n\nThe old door opened.",
+          nextMarkdown: "# Chapter 1\n\nThe red door opened.",
+        }}
+        onChange={vi.fn()}
+        onSave={vi.fn()}
+        onModeChange={vi.fn()}
+      />,
+    );
+
+    const diff = screen.getByLabelText("Staged edit diff");
+
+    expect(diff).toBeInTheDocument();
+    expect(screen.getAllByText("Original").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Revised").length).toBeGreaterThan(0);
+    expect(screen.getByText("The old door opened.")).toBeInTheDocument();
+    expect(screen.getByText("The red door opened.")).toBeInTheDocument();
+    expect(
+      screen.queryByRole("textbox", { name: "Manuscript editor" }),
+    ).not.toBeInTheDocument();
+  });
+
   it("gives the editor surface an accessible name", () => {
     render(
       <EditorPane

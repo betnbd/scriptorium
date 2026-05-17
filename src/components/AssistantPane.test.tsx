@@ -166,7 +166,9 @@ describe("AssistantPane", () => {
     const user = userEvent.setup();
     const onApplyPendingEdit = vi.fn();
     const onRejectPendingEdit = vi.fn();
+    const onPendingDiffVisibilityChange = vi.fn();
     renderPane({
+      isPendingDiffVisible: true,
       pendingEdit: {
         mode: "edit",
         response: "edit text",
@@ -175,16 +177,17 @@ describe("AssistantPane", () => {
       },
       onApplyPendingEdit,
       onRejectPendingEdit,
+      onPendingDiffVisibilityChange,
     });
 
     expect(screen.getByText("Edit ready")).toBeInTheDocument();
     expect(screen.getByText("Review the staged edit before saving.")).toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "Show diff" }));
-    expect(screen.getByText(/- # \[Original\] line/)).toBeInTheDocument();
-    expect(screen.getByText(/\+ # \[Revised\] line/)).toBeInTheDocument();
+    expect(screen.getByText("Diff shown in the editor pane.")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Hide diff" }));
     await user.click(screen.getByRole("button", { name: "Keep edits" }));
     await user.click(screen.getByRole("button", { name: "Reject edits" }));
 
+    expect(onPendingDiffVisibilityChange).toHaveBeenCalledWith(false);
     expect(onApplyPendingEdit).toHaveBeenCalledOnce();
     expect(onRejectPendingEdit).toHaveBeenCalledOnce();
   });
