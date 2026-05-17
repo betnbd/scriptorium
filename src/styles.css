@@ -23,6 +23,16 @@
   --danger-bg: #fff4f4;
   --danger-border: #e2a8a8;
   --danger-text: #6f1d1d;
+  --diff-same-text: #555555;
+  --diff-marker-text: #888888;
+  --diff-removed-text: #8a2d2d;
+  --diff-removed-label-bg: #f7dddd;
+  --diff-removed-row-bg: #fff0f0;
+  --diff-removed-rail: #c35555;
+  --diff-added-text: #1d6242;
+  --diff-added-label-bg: #dff2e6;
+  --diff-added-row-bg: #eef9f2;
+  --diff-added-rail: #4a9b6a;
   --shadow: rgba(31, 35, 40, 0.14);
   --dialog-scrim: rgba(20, 26, 34, 0.34);
   --ui-font-size-xs: 13px;
@@ -288,6 +298,26 @@
   --accent-soft: #36463e;
   --accent-text: #1e2326;
   --shadow: rgba(0, 0, 0, 0.34);
+}
+
+[data-theme="catppuccin-mocha"],
+[data-theme="gruvbox-dark"],
+[data-theme="dracula"],
+[data-theme="nord"],
+[data-theme="solarized-dark"],
+[data-theme="tokyo-night"],
+[data-theme="rose-pine"],
+[data-theme="everforest"] {
+  --diff-same-text: var(--text-muted);
+  --diff-marker-text: var(--text-faint);
+  --diff-removed-text: #ffd0d0;
+  --diff-removed-label-bg: #5a2a31;
+  --diff-removed-row-bg: #3a2025;
+  --diff-removed-rail: #e78284;
+  --diff-added-text: #c9f2d9;
+  --diff-added-label-bg: #214333;
+  --diff-added-row-bg: #173126;
+  --diff-added-rail: #7fc79a;
 }
 
 * {
@@ -1204,14 +1234,14 @@ select {
 
 .diff-legend-original,
 .staged-diff-row.is-removed .staged-diff-label {
-  color: #8a2d2d;
-  background: #f7dddd;
+  color: var(--diff-removed-text);
+  background: var(--diff-removed-label-bg);
 }
 
 .diff-legend-revised,
 .staged-diff-row.is-added .staged-diff-label {
-  color: #1d6242;
-  background: #dff2e6;
+  color: var(--diff-added-text);
+  background: var(--diff-added-label-bg);
 }
 
 .staged-diff-lines {
@@ -1231,21 +1261,23 @@ select {
 }
 
 .staged-diff-row.is-same {
-  color: #555555;
+  color: var(--diff-same-text);
 }
 
 .staged-diff-row.is-removed {
-  border-left-color: #c35555;
-  background: #fff0f0;
+  border-left-color: var(--diff-removed-rail);
+  background: var(--diff-removed-row-bg);
+  color: var(--text-strong);
 }
 
 .staged-diff-row.is-added {
-  border-left-color: #4a9b6a;
-  background: #eef9f2;
+  border-left-color: var(--diff-added-rail);
+  background: var(--diff-added-row-bg);
+  color: var(--text-strong);
 }
 
 .staged-diff-marker {
-  color: #888888;
+  color: var(--diff-marker-text);
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
     "Liberation Mono", "Courier New", monospace;
   font-weight: 800;
