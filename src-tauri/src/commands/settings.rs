@@ -7,6 +7,8 @@ use tauri::Manager;
 #[serde(rename_all = "camelCase")]
 pub struct Settings {
     pub default_provider: String,
+    #[serde(default = "default_assistant_system_prompt")]
+    pub assistant_system_prompt: String,
     pub openai_url: String,
     #[serde(default = "default_openai_model")]
     pub openai_model: String,
@@ -101,6 +103,10 @@ fn canonical_root(root: &Path) -> Result<std::path::PathBuf, String> {
 
 fn default_true() -> bool {
     true
+}
+
+fn default_assistant_system_prompt() -> String {
+    "You are helping revise a novel draft.".to_string()
 }
 
 fn default_openai_model() -> String {

@@ -15,6 +15,7 @@ export interface AppState {
   savedMarkdown: string;
   isDirty: boolean;
   assistantMessages: AssistantMessage[];
+  assistantMessagesByPath: Record<string, AssistantMessage[]>;
   settings: AppSettings;
   errorMessage: string | null;
 }
@@ -44,8 +45,9 @@ export type AppAction =
   | { type: "errorCleared" };
 
 export const defaultSettings: AppSettings = {
-  defaultProvider: "openai-subscription",
+  defaultProvider: "anthropic-subscription",
   openaiUrl: "https://chatgpt.com/",
+  assistantSystemPrompt: "You are helping revise a novel draft.",
   openaiModel: "gpt-5.5",
   openaiEffort: "medium",
   anthropicUrl: "https://claude.ai/new",
@@ -73,6 +75,7 @@ export const initialAppState: AppState = {
   savedMarkdown: "",
   isDirty: false,
   assistantMessages: [],
+  assistantMessagesByPath: {},
   settings: defaultSettings,
   errorMessage: null,
 };
@@ -90,6 +93,7 @@ export function appReducer(state: AppState, action: AppAction): AppState {
         savedMarkdown: "",
         isDirty: false,
         assistantMessages: [],
+        assistantMessagesByPath: {},
       };
     case "fileOpened":
       return {
@@ -98,7 +102,8 @@ export function appReducer(state: AppState, action: AppAction): AppState {
         openMarkdown: action.markdown,
         savedMarkdown: action.markdown,
         isDirty: false,
-        assistantMessages: [],
+        assistantMessages:
+          state.assistantMessagesByPath[action.file.relativePath] ?? [],
       };
     case "openFileMetadataUpdated":
       if (!state.openFile) {
@@ -108,6 +113,10 @@ export function appReducer(state: AppState, action: AppAction): AppState {
       return {
         ...state,
         openFile: action.file,
+        assistantMessages:
+          action.file.relativePath === state.openFile.relativePath
+            ? state.assistantMessages
+            : state.assistantMessagesByPath[action.file.relativePath] ?? [],
       };
     case "fileClosed":
       return {
@@ -146,14 +155,37 @@ export function appReducer(state: AppState, action: AppAction): AppState {
         ),
       };
     case "assistantMessageAdded":
-      return {
-        ...state,
-        assistantMessages: [...state.assistantMessages, action.message],
-      };
+      if (!state.openFile) {
+        return state;
+      }
+
+      {
+        const assistantMessages = [...state.assistantMessages, action.message];
+
+        return {
+          ...state,
+          assistantMessages,
+          assistantMessagesByPath: {
+            ...state.assistantMessagesByPath,
+            [state.openFile.relativePath]: assistantMessages,
+          },
+        };
+      }
     case "assistantMessagesReset":
+      if (!state.openFile) {
+        return {
+          ...state,
+          assistantMessages: [],
+        };
+      }
+
       return {
         ...state,
         assistantMessages: [],
+        assistantMessagesByPath: {
+          ...state.assistantMessagesByPath,
+          [state.openFile.relativePath]: [],
+        },
       };
     case "settingsLoaded":
       return {

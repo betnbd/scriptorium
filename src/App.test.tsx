@@ -463,6 +463,9 @@ describe("App", () => {
     expect(tauriApiMock.saveSettings).toHaveBeenCalledWith(
       expect.objectContaining({ appZoomLevel: 1 }),
     );
+    expect(document.querySelector(".app-shell")).toHaveStyle({
+      "--editor-font-size": "19px",
+    });
 
     tauriApiMock.saveSettings.mockClear();
     await user.keyboard("{Control>}-{/Control}");
@@ -528,6 +531,10 @@ describe("App", () => {
       await screen.findByRole("button", { name: "Open chapter-1.md" }),
     );
     await openAssistant(user);
+    await user.selectOptions(
+      screen.getByLabelText("Provider"),
+      "openai-subscription",
+    );
     await user.click(screen.getByRole("button", { name: "Select Text" }));
     await user.type(screen.getByLabelText("Message"), "Make this more tense");
     await user.click(screen.getByRole("button", { name: "Send to OpenAI" }));
@@ -657,7 +664,7 @@ describe("App", () => {
     );
     await openAssistant(user);
     await user.type(screen.getByLabelText("Message"), "Can you read this?");
-    await user.click(screen.getByRole("button", { name: "Send to OpenAI" }));
+    await user.click(screen.getByRole("button", { name: "Send to Claude" }));
     await user.click(screen.getByRole("button", { name: "Edit Text" }));
     resolveResponse("Yes, I can read it.");
 
@@ -816,13 +823,13 @@ describe("App", () => {
     await user.click(screen.getByRole("button", { name: "Open chapter-1.md" }));
     await openAssistant(user);
     await user.type(screen.getByLabelText("Message"), "Tighten this");
-    await user.click(screen.getByRole("button", { name: "Send to OpenAI" }));
+    await user.click(screen.getByRole("button", { name: "Send to Claude" }));
 
     expect(tauriApiMock.sendCliAgentRequest).toHaveBeenCalledWith(
-      "openai-subscription",
+      "anthropic-subscription",
       "/novel",
       expect.stringContaining("Changed lantern."),
-      "gpt-5.5",
+      "sonnet",
       "medium",
     );
   });
@@ -846,35 +853,35 @@ describe("App", () => {
     );
     await openAssistant(user);
     await user.type(screen.getByLabelText("Message"), "Can you read this?");
-    await user.click(screen.getByRole("button", { name: "Send to OpenAI" }));
+    await user.click(screen.getByRole("button", { name: "Send to Claude" }));
     await screen.findByText("The chapter is readable.");
     await user.type(screen.getByLabelText("Message"), "What is strongest?");
-    await user.click(screen.getByRole("button", { name: "Send to OpenAI" }));
+    await user.click(screen.getByRole("button", { name: "Send to Claude" }));
 
     expect(tauriApiMock.sendCliAgentRequest).toHaveBeenLastCalledWith(
-      "openai-subscription",
+      "anthropic-subscription",
       "/novel",
       expect.stringContaining("Conversation so far:"),
-      "gpt-5.5",
+      "sonnet",
       "medium",
     );
     expect(tauriApiMock.sendCliAgentRequest).toHaveBeenLastCalledWith(
-      "openai-subscription",
+      "anthropic-subscription",
       "/novel",
       expect.stringContaining("User: Can you read this?"),
-      "gpt-5.5",
+      "sonnet",
       "medium",
     );
     expect(tauriApiMock.sendCliAgentRequest).toHaveBeenLastCalledWith(
-      "openai-subscription",
+      "anthropic-subscription",
       "/novel",
       expect.stringContaining("Assistant: The chapter is readable."),
-      "gpt-5.5",
+      "sonnet",
       "medium",
     );
   });
 
-  it("starts a fresh AI conversation each time the drawer is opened", async () => {
+  it("restores the open file conversation when the drawer is reopened", async () => {
     const user = userEvent.setup();
     const chapter = fileNode("chapter-1.md");
     mockProjectFolder([chapter]);
@@ -891,15 +898,53 @@ describe("App", () => {
     );
     await openAssistant(user);
     await user.type(screen.getByLabelText("Message"), "Can you read this?");
-    await user.click(screen.getByRole("button", { name: "Send to OpenAI" }));
+    await user.click(screen.getByRole("button", { name: "Send to Claude" }));
     await screen.findByText("Readable.");
     await user.click(screen.getByRole("button", { name: "Hide" }));
     await openAssistant(user);
 
-    expect(screen.queryByText("Readable.")).not.toBeInTheDocument();
+    expect(screen.getByText("Readable.")).toBeInTheDocument();
+  });
+
+  it("restores the prior conversation when switching back to a markdown file", async () => {
+    const user = userEvent.setup();
+    const chapter = fileNode("chapter-1.md");
+    const notes = fileNode("notes.md");
+    mockProjectFolder([chapter, notes]);
+    mockMarkdownReads({
+      "chapter-1.md": "# Chapter 1\n\nOld text.",
+      "notes.md": "# Notes\n\nOld clue.",
+    });
+    tauriApiMock.sendCliAgentRequest
+      .mockResolvedValueOnce("Chapter response.")
+      .mockResolvedValueOnce("Notes response.");
+
+    render(<App />);
+
+    await user.click(screen.getByRole("button", { name: "Open Folder" }));
+    await user.click(
+      await screen.findByRole("button", { name: "Open chapter-1.md" }),
+    );
+    await openAssistant(user);
+    await user.type(screen.getByLabelText("Message"), "Read chapter");
+    await user.click(screen.getByRole("button", { name: "Send to Claude" }));
+    await screen.findByText("Chapter response.");
+
+    await user.click(await screen.findByRole("button", { name: "Open notes.md" }));
+    expect(screen.queryByText("Chapter response.")).not.toBeInTheDocument();
     expect(
       screen.getByText("Start a conversation about the open file."),
     ).toBeInTheDocument();
+
+    await user.type(screen.getByLabelText("Message"), "Read notes");
+    await user.click(screen.getByRole("button", { name: "Send to Claude" }));
+    await screen.findByText("Notes response.");
+
+    await user.click(
+      await screen.findByRole("button", { name: "Open chapter-1.md" }),
+    );
+    expect(screen.getByText("Chapter response.")).toBeInTheDocument();
+    expect(screen.queryByText("Notes response.")).not.toBeInTheDocument();
   });
 
   it("imports an edit into the editor and can reject it before saving", async () => {

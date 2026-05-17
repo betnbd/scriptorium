@@ -64,6 +64,7 @@ export interface ProviderStatus {
 export interface AppSettings {
   defaultProvider: ProviderId;
   openaiUrl: string;
+  assistantSystemPrompt: string;
   openaiModel: string;
   openaiEffort: string;
   anthropicUrl: string;

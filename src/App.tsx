@@ -76,12 +76,15 @@ export default function App() {
     markdown: state.openMarkdown,
   };
   const appUiFontSizes = uiFontSizesForZoom(state.settings.appZoomLevel);
+  const appZoomScale = scaleForAppZoom(state.settings.appZoomLevel);
   const editorSettingsStyle = {
     "--ui-font-size-xs": `${appUiFontSizes.xs}px`,
     "--ui-font-size-sm": `${appUiFontSizes.sm}px`,
     "--ui-font-size-md": `${appUiFontSizes.md}px`,
     "--ui-font-size-lg": `${appUiFontSizes.lg}px`,
-    "--editor-font-size": `${state.settings.editorFontSize}px`,
+    "--editor-font-size": `${Math.round(
+      state.settings.editorFontSize * appZoomScale,
+    )}px`,
     "--editor-line-width": `${state.settings.editorLineWidth}px`,
     "--file-pane-width": `${paneLayout.filePaneWidth}px`,
     "--assistant-pane-width": `${paneLayout.assistantPaneWidth}px`,
@@ -717,7 +720,6 @@ export default function App() {
   }
 
   function openAssistant() {
-    dispatch({ type: "assistantMessagesReset" });
     setAssistantMode("chat");
     setAssistantSessionId((current) => current + 1);
     setIsAssistantOpen(true);
@@ -791,6 +793,7 @@ export default function App() {
       const prompt = buildAssistantPrompt({
         mode: request.mode,
         instruction: request.instruction,
+        systemPrompt: state.settings.assistantSystemPrompt,
         targetLabel: assistantSelection?.trim()
           ? `${state.openFile.relativePath} (current selection)`
           : state.openFile.relativePath,
@@ -1150,7 +1153,7 @@ function clampEditorFontSize(fontSize: number) {
 }
 
 function uiFontSizesForZoom(zoomLevel: number) {
-  const scale = 1 + clampAppZoomLevel(zoomLevel) * 0.08;
+  const scale = scaleForAppZoom(zoomLevel);
 
   return {
     xs: Math.round(13 * scale),
@@ -1158,6 +1161,10 @@ function uiFontSizesForZoom(zoomLevel: number) {
     md: Math.round(15 * scale),
     lg: Math.round(19 * scale),
   };
+}
+
+function scaleForAppZoom(zoomLevel: number) {
+  return 1 + clampAppZoomLevel(zoomLevel) * 0.08;
 }
 
 function messageFromError(error: unknown): string {
@@ -1458,6 +1465,10 @@ function parseProjectEnvSettings(markdown: string): Partial<AppSettings> | null 
   const defaultProvider = envValue("DEFAULT_PROVIDER");
   if (isProviderId(defaultProvider)) {
     parsed.defaultProvider = defaultProvider;
+  }
+  const assistantSystemPrompt = envValue("ASSISTANT_SYSTEM_PROMPT");
+  if (assistantSystemPrompt) {
+    parsed.assistantSystemPrompt = assistantSystemPrompt;
   }
   const openaiUrl = envValue("OPENAI_URL");
   if (openaiUrl) {

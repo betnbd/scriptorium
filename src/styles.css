@@ -1422,14 +1422,22 @@ select {
 }
 
 .settings-form input,
-.settings-form select {
+.settings-form select,
+.settings-form textarea {
   width: 100%;
   border: 1px solid #c3ccd8;
   border-radius: 8px;
   padding: 9px 10px;
   color: #20242a;
   background: #ffffff;
+  font: inherit;
   font-weight: 400;
+}
+
+.settings-form textarea {
+  min-height: 96px;
+  resize: vertical;
+  line-height: 1.45;
 }
 
 .settings-number-row {
@@ -1869,6 +1877,7 @@ select {
 [data-theme] .assistant-pane textarea,
 [data-theme] .settings-form input,
 [data-theme] .settings-form select,
+[data-theme] .settings-form textarea,
 [data-theme] .provider-login-settings code {
   border-color: var(--border-strong);
   color: var(--text);

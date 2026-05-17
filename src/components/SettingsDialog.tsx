@@ -119,6 +119,20 @@ export function SettingsDialog({
             </label>
           </div>
 
+          <label>
+            Assistant system prompt
+            <textarea
+              value={draft.assistantSystemPrompt}
+              onChange={(event) =>
+                setDraft({
+                  ...draft,
+                  assistantSystemPrompt: event.target.value,
+                })
+              }
+              rows={4}
+            />
+          </label>
+
           <section className="provider-login-settings">
             <div className="provider-login-header">
               <div>

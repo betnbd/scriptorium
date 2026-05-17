@@ -46,6 +46,11 @@ describe("SettingsDialog", () => {
     expect(screen.getByText("Provider connections")).toBeInTheDocument();
     expect(screen.getByText("codex login")).toBeInTheDocument();
     expect(screen.getByText("claude auth login")).toBeInTheDocument();
+    await user.clear(screen.getByLabelText("Assistant system prompt"));
+    await user.type(
+      screen.getByLabelText("Assistant system prompt"),
+      "You are a blunt but careful fiction editor.",
+    );
     await user.selectOptions(screen.getByLabelText("OpenAI model"), "gpt-5.4");
     await user.selectOptions(screen.getByLabelText("OpenAI effort"), "high");
     await user.selectOptions(screen.getByLabelText("Claude model"), "opus");
@@ -62,6 +67,7 @@ describe("SettingsDialog", () => {
     expect(onSave).toHaveBeenCalledWith(
       expect.objectContaining({
         defaultProvider: "anthropic-subscription",
+        assistantSystemPrompt: "You are a blunt but careful fiction editor.",
         openaiModel: "gpt-5.4",
         openaiEffort: "high",
         anthropicModel: "opus",

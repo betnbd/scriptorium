@@ -28,17 +28,18 @@ describe("AssistantPane", () => {
     const props = renderPane();
 
     expect(screen.getByRole("radio", { name: "Chat" })).toBeChecked();
-    expect(screen.getByLabelText("Model")).toHaveValue("gpt-5.5");
+    expect(screen.getByLabelText("Provider")).toHaveValue("anthropic-subscription");
+    expect(screen.getByLabelText("Model")).toHaveValue("sonnet");
     expect(screen.getByLabelText("Effort")).toHaveValue("medium");
 
     await user.type(screen.getByLabelText("Message"), "Make it sharper");
-    await user.click(screen.getByRole("button", { name: "Send to OpenAI" }));
+    await user.click(screen.getByRole("button", { name: "Send to Claude" }));
 
     expect(props.onSubmit).toHaveBeenCalledWith({
-      provider: "openai-subscription",
+      provider: "anthropic-subscription",
       mode: "chat",
       instruction: "Make it sharper",
-      model: "gpt-5.5",
+      model: "sonnet",
       effort: "medium",
     });
     expect(screen.getByLabelText("Message")).toHaveValue("");
@@ -230,7 +231,7 @@ describe("AssistantPane", () => {
     expect(screen.getByRole("button", { name: "Import" })).toBeDisabled();
 
     await user.click(screen.getByRole("radio", { name: "Chat" }));
-    expect(screen.getByRole("button", { name: "Send to OpenAI" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Send to Claude" })).toBeEnabled();
   });
 
   it("disables sending when there is no open file or no message", async () => {
@@ -244,9 +245,9 @@ describe("AssistantPane", () => {
     cleanup();
 
     renderPane();
-    expect(screen.getByRole("button", { name: "Send to OpenAI" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Send to Claude" })).toBeDisabled();
     await user.type(screen.getByLabelText("Message"), "Ready?");
-    expect(screen.getByRole("button", { name: "Send to OpenAI" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Send to Claude" })).toBeEnabled();
   });
 
   it("closes the drawer on request", async () => {

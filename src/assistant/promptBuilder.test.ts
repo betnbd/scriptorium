@@ -46,6 +46,37 @@ describe("buildAssistantPrompt", () => {
     expect(prompt).toContain("do not rewrite or edit the target Markdown");
   });
 
+  it("uses custom assistant system prompt language when provided", () => {
+    const prompt = buildAssistantPrompt({
+      mode: "chat",
+      instruction: "Read this.",
+      systemPrompt: "You are a blunt but careful fiction editor.",
+      targetLabel: "scene.md",
+      targetMarkdown: "Old line.",
+      projectFiles: [],
+      context: [],
+    });
+
+    expect(prompt.startsWith("You are a blunt but careful fiction editor.")).toBe(
+      true,
+    );
+    expect(prompt).not.toContain("You are helping revise a novel draft.");
+  });
+
+  it("falls back to the built-in assistant system prompt when custom text is blank", () => {
+    const prompt = buildAssistantPrompt({
+      mode: "chat",
+      instruction: "Read this.",
+      systemPrompt: "  ",
+      targetLabel: "scene.md",
+      targetMarkdown: "Old line.",
+      projectFiles: [],
+      context: [],
+    });
+
+    expect(prompt.startsWith("You are helping revise a novel draft.")).toBe(true);
+  });
+
   it("includes prior conversation turns for iterative CLI-backed chats", () => {
     const prompt = buildAssistantPrompt({
       mode: "chat",

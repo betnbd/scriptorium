@@ -3,6 +3,7 @@ import type { AssistantMessage, AssistantMode, IndexedDocument } from "../types"
 interface PromptInput {
   mode: AssistantMode;
   instruction: string;
+  systemPrompt?: string;
   targetLabel: string;
   targetMarkdown: string;
   projectFiles: string[];
@@ -28,7 +29,7 @@ export function buildAssistantPrompt(input: PromptInput): string {
   const conversationText = formatConversation(input.conversation ?? []);
 
   return [
-    "You are helping revise a novel draft.",
+    input.systemPrompt?.trim() || "You are helping revise a novel draft.",
     `Mode: ${modeLabels[input.mode]}`,
     `Instruction: ${input.instruction.trim() || "Use your best editorial judgment."}`,
     "",

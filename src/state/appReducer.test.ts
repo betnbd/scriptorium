@@ -131,6 +131,9 @@ describe("appReducer", () => {
 
     expect(state.settings.openaiModel).toBe("gpt-5.5");
     expect(state.settings.openaiEffort).toBe("medium");
+    expect(state.settings.assistantSystemPrompt).toBe(
+      "You are helping revise a novel draft.",
+    );
     expect(state.settings.anthropicModel).toBe("sonnet");
     expect(state.settings.anthropicEffort).toBe("medium");
     expect(state.settings.themeId).toBe("paper");
