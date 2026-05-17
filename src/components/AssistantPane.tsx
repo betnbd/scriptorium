@@ -235,11 +235,11 @@ export function AssistantPane({
               value={provider}
               onChange={(event) => setProvider(event.target.value as ProviderId)}
             >
-              <option value="openai-subscription">
-                OpenAI subscription via Codex
-              </option>
               <option value="anthropic-subscription">
                 Anthropic subscription via Claude Code
+              </option>
+              <option value="openai-subscription">
+                OpenAI subscription via Codex
               </option>
               <option value="lm-studio">LM Studio</option>
             </select>

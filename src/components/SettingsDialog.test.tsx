@@ -5,6 +5,26 @@ import { defaultSettings } from "../state/appReducer";
 import { SettingsDialog } from "./SettingsDialog";
 
 describe("SettingsDialog", () => {
+  it("lists Claude before OpenAI in the default provider picker", () => {
+    render(
+      <SettingsDialog
+        settings={defaultSettings}
+        onSave={vi.fn()}
+        onClose={vi.fn()}
+      />,
+    );
+
+    const options = Array.from(
+      screen.getByLabelText("Default provider").querySelectorAll("option"),
+    ).map((option) => option.textContent);
+
+    expect(options).toEqual([
+      "Anthropic subscription via Claude Code",
+      "OpenAI subscription via Codex",
+      "LM Studio",
+    ]);
+  });
+
   it("saves edited settings", async () => {
     const user = userEvent.setup();
     const onSave = vi.fn();

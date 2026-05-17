@@ -69,14 +69,14 @@ export function SettingsDialog({
                 })
               }
             >
-              <option value="openai-subscription">
-                OpenAI subscription via Codex
-              </option>
-              <option value="anthropic-subscription">
-                Anthropic subscription via Claude Code
-              </option>
-              <option value="lm-studio">LM Studio</option>
-            </select>
+                <option value="anthropic-subscription">
+                  Anthropic subscription via Claude Code
+                </option>
+                <option value="openai-subscription">
+                  OpenAI subscription via Codex
+                </option>
+                <option value="lm-studio">LM Studio</option>
+              </select>
           </label>
 
           <div className="settings-number-row">

@@ -44,6 +44,20 @@ describe("AssistantPane", () => {
     expect(screen.getByLabelText("Message")).toHaveValue("");
   });
 
+  it("lists Claude before OpenAI in the provider picker", () => {
+    renderPane();
+
+    const options = Array.from(
+      screen.getByLabelText("Provider").querySelectorAll("option"),
+    ).map((option) => option.textContent);
+
+    expect(options).toEqual([
+      "Anthropic subscription via Claude Code",
+      "OpenAI subscription via Codex",
+      "LM Studio",
+    ]);
+  });
+
   it("lets the user select provider, model, effort, and edit mode before sending", async () => {
     const user = userEvent.setup();
     const props = renderPane();
