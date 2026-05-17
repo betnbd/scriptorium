@@ -179,7 +179,7 @@ fn login_command_for_provider(provider: &CliAgentProvider) -> Vec<String> {
 
 fn parse_status_output(
     provider: CliAgentProvider,
-    success: bool,
+    _success: bool,
     stdout: &str,
     stderr: &str,
 ) -> CliAgentStatus {
@@ -202,10 +202,10 @@ fn parse_status_output(
         }
     }
 
-    let authenticated = success
-        && stdout
-            .lines()
-            .any(|line| line.trim_start().to_lowercase().starts_with("logged in"));
+    let has_logged_in_line = stdout
+        .lines()
+        .any(|line| line.trim_start().to_lowercase().starts_with("logged in"));
+    let authenticated = has_logged_in_line;
     let detail = if authenticated {
         stdout.lines().next().unwrap_or("Connected.").to_string()
     } else if !stderr.is_empty() {
@@ -600,6 +600,20 @@ mod tests {
         let status = parse_status_output(
             CliAgentProvider::OpenaiSubscription,
             true,
+            "Logged in using ChatGPT",
+            "",
+        );
+
+        assert!(status.installed);
+        assert!(status.authenticated);
+        assert_eq!(status.detail, "Logged in using ChatGPT");
+    }
+
+    #[test]
+    fn treats_codex_logged_in_text_as_authenticated_even_with_nonzero_exit() {
+        let status = parse_status_output(
+            CliAgentProvider::OpenaiSubscription,
+            false,
             "Logged in using ChatGPT",
             "",
         );
