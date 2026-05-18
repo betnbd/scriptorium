@@ -60,3 +60,15 @@ Add focused tests for:
 - Showing multiple assistant panes at once
 - Spawning OS-level terminal windows per chapter
 - Changing the one-open-editor-file rule
+
+## Background Edit Review Extension
+Background edit responses must stage inside the originating document session without mutating an off-screen document. If the originating file is not currently visible when an edit response returns, the session stores the pending edit and marks the file as `Edit ready`; the editor text changes only when that document is opened again for review.
+
+## File Tree Activity Indicators
+The file tree should stay visually quiet by default. Only documents with actionable assistant activity show a compact status badge:
+
+- `Working` while a request is in flight
+- `Reply ready` when an unseen chat response has arrived
+- `Edit ready` when an unseen staged edit is waiting for review
+
+`Edit ready` receives the strongest emphasis because it requires user action. Idle sessions show no badge.

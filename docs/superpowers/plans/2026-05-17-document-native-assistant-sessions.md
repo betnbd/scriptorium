@@ -79,3 +79,28 @@
 - [ ] Run `npm run build`.
 - [ ] Manually verify with two chapters that one request can keep running while another chapter is opened and that returning restores the first chapter's state.
 - [ ] Commit final docs/cleanup changes.
+
+### Task 7: Stage background edits without hidden document mutation
+
+**Files:**
+- Modify: `src/types.ts`
+- Modify: `src/App.tsx`
+- Modify: `src/App.test.tsx`
+
+- [ ] Write failing tests proving an off-screen edit response stores a pending edit but does not change the currently visible document.
+- [ ] Record whether a session has an unseen reply or unseen edit waiting for review.
+- [ ] When an edit response returns for a hidden document, compute and store the pending edit against that session only; do not dispatch editor text changes until the document becomes active.
+- [ ] When the document becomes active, surface the pending diff/review state for that document.
+
+### Task 8: Add restrained assistant activity badges to the file tree
+
+**Files:**
+- Modify: `src/components/FileTree.tsx`
+- Modify: `src/styles.css`
+- Modify: `src/App.tsx`
+- Modify: `src/App.test.tsx`
+
+- [ ] Write failing tests for `Working`, `Reply ready`, and `Edit ready` badges.
+- [ ] Derive per-file activity labels from assistant sessions.
+- [ ] Render badges only for active states; render nothing for idle files.
+- [ ] Use muted styles for `Working` and `Reply ready`, with stronger emphasis for `Edit ready`.
