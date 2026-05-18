@@ -624,7 +624,7 @@ describe("App", () => {
       expect.stringContaining("Old text."),
     );
     expect(tauriApiMock.copyText).not.toHaveBeenCalled();
-    expect(screen.getByText("Edit ready")).toBeInTheDocument();
+    expect(screen.getAllByText("Edit ready").length).toBeGreaterThan(0);
     expect(
       screen.getAllByText("Review the staged edit before saving.").length,
     ).toBeGreaterThan(0);
@@ -665,6 +665,64 @@ describe("App", () => {
     await user.click(screen.getByRole("button", { name: "New chat" }));
 
     expect(screen.getByLabelText("Message")).toHaveValue("Keep this draft");
+  });
+
+  it("runs the same edit prompt sequentially across every Markdown document in the folder", async () => {
+    const user = userEvent.setup();
+    const chapter = fileNode("chapter-1.md");
+    const scene = fileNode("scene.md");
+    const image = { ...fileNode("cover.png"), isMarkdown: false, extension: "png" };
+    mockProjectFolder([chapter, scene, image]);
+    mockMarkdownReads({
+      "chapter-1.md": "# Chapter 1\n\nOld chapter.",
+      "scene.md": "# Scene\n\nOld scene.",
+    });
+    tauriApiMock.sendCliAgentRequest
+      .mockResolvedValueOnce("# Chapter 1\n\nNew chapter.")
+      .mockResolvedValueOnce("# Scene\n\nNew scene.");
+
+    render(<App />);
+
+    await user.click(screen.getByRole("button", { name: "Open Folder" }));
+    await user.click(await screen.findByRole("button", { name: "Open chapter-1.md" }));
+    await openAssistant(user);
+    await user.click(screen.getByRole("button", { name: "Select Text" }));
+    await user.selectOptions(screen.getByLabelText("Target"), "all-documents");
+    await user.type(screen.getByLabelText("Message"), "Tighten prose");
+    await user.click(screen.getByRole("button", { name: "Send to all documents" }));
+
+    expect(await screen.findByText("Completed 2 documents: 2 succeeded, 0 failed.")).toBeInTheDocument();
+    expect(tauriApiMock.sendCliAgentRequest).toHaveBeenCalledTimes(2);
+    expect(tauriApiMock.sendCliAgentRequest.mock.calls[0][2]).toContain("chapter-1.md");
+    expect(tauriApiMock.sendCliAgentRequest.mock.calls[0][2]).toContain("Old chapter.");
+    expect(tauriApiMock.sendCliAgentRequest.mock.calls[0][2]).not.toContain("current selection");
+    expect(tauriApiMock.sendCliAgentRequest.mock.calls[1][2]).toContain("scene.md");
+    expect(tauriApiMock.sendCliAgentRequest.mock.calls[1][2]).toContain("Old scene.");
+    expect(screen.getAllByText("Edit ready").length).toBeGreaterThan(0);
+    expect(screen.getByText("scene.md")).toBeInTheDocument();
+  });
+
+  it("continues a folder-wide run after one document fails", async () => {
+    const user = userEvent.setup();
+    mockProjectFolder([fileNode("chapter-1.md"), fileNode("scene.md")]);
+    mockMarkdownReads({
+      "chapter-1.md": "# Chapter 1",
+      "scene.md": "# Scene",
+    });
+    tauriApiMock.sendCliAgentRequest
+      .mockRejectedValueOnce(new Error("First failed."))
+      .mockResolvedValueOnce("# Scene\n\nNew scene.");
+
+    render(<App />);
+    await user.click(screen.getByRole("button", { name: "Open Folder" }));
+    await user.click(await screen.findByRole("button", { name: "Open chapter-1.md" }));
+    await openAssistant(user);
+    await user.selectOptions(screen.getByLabelText("Target"), "all-documents");
+    await user.type(screen.getByLabelText("Message"), "Tighten prose");
+    await user.click(screen.getByRole("button", { name: "Send to all documents" }));
+
+    expect(await screen.findByText("Completed 2 documents: 1 succeeded, 1 failed.")).toBeInTheDocument();
+    expect(tauriApiMock.sendCliAgentRequest).toHaveBeenCalledTimes(2);
   });
 
   it("keeps chat responses when the user keeps writing while the agent works", async () => {

@@ -4,6 +4,7 @@ import type {
   AssistantMessage,
   AssistantMode,
   AssistantPendingEdit,
+  AssistantTarget,
   ProviderId,
   ProviderStatus,
 } from "../types";
@@ -18,6 +19,15 @@ export interface AssistantRequest {
   instruction: string;
   model: string;
   effort?: string;
+  target: AssistantTarget;
+}
+
+export interface AssistantBatchStatus {
+  total: number;
+  completed: number;
+  succeeded: number;
+  failed: number;
+  isRunning: boolean;
 }
 
 interface AssistantPaneProps {
@@ -41,6 +51,7 @@ interface AssistantPaneProps {
   anthropicModel?: string;
   anthropicEffort?: string;
   lmStudioModel?: string;
+  target?: AssistantTarget;
   instruction?: string;
   importText?: string;
   onFieldChange?: (patch: Record<string, unknown>) => void;
@@ -50,6 +61,7 @@ interface AssistantPaneProps {
   onRejectPendingEdit?: () => void;
   onPendingDiffVisibilityChange?: (isVisible: boolean) => void;
   onResetSession?: () => void;
+  batchStatus?: AssistantBatchStatus | null;
   onClose: () => void;
 }
 
@@ -69,6 +81,7 @@ export function AssistantPane({
   anthropicModel: controlledAnthropicModel,
   anthropicEffort: controlledAnthropicEffort,
   lmStudioModel: controlledLmStudioModel,
+  target: controlledTarget,
   instruction: controlledInstruction,
   importText: controlledImportText,
   onFieldChange,
@@ -78,6 +91,7 @@ export function AssistantPane({
   onRejectPendingEdit,
   onPendingDiffVisibilityChange,
   onResetSession,
+  batchStatus = null,
   onClose,
 }: AssistantPaneProps) {
   const [localFields, setLocalFields] = useState({
@@ -88,6 +102,7 @@ export function AssistantPane({
     anthropicModel: settings.anthropicModel,
     anthropicEffort: settings.anthropicEffort,
     lmStudioModel: settings.lmStudioModel,
+    target: "current-document" as AssistantTarget,
     instruction: "",
     importText: "",
   });
@@ -98,6 +113,7 @@ export function AssistantPane({
   const anthropicModel = controlledAnthropicModel ?? localFields.anthropicModel;
   const anthropicEffort = controlledAnthropicEffort ?? localFields.anthropicEffort;
   const lmStudioModel = controlledLmStudioModel ?? localFields.lmStudioModel;
+  const target = controlledTarget ?? localFields.target;
   const instruction = controlledInstruction ?? localFields.instruction;
   const importText = controlledImportText ?? localFields.importText;
   function updateFields(patch: Partial<typeof localFields>) {
@@ -167,6 +183,7 @@ export function AssistantPane({
       instruction: instruction.trim(),
       model: selectedModel,
       effort: selectedEffort,
+      target,
     });
     updateFields({ instruction: "" });
   }
@@ -261,6 +278,19 @@ export function AssistantPane({
 
       <div className="assistant-controls">
         <div className="assistant-field-grid">
+          <label>
+            Target
+            <select
+              aria-label="Target"
+              value={target}
+              onChange={(event) =>
+                updateFields({ target: event.target.value as AssistantTarget })
+              }
+            >
+              <option value="current-document">Current document</option>
+              <option value="all-documents">All documents in folder</option>
+            </select>
+          </label>
           <label>
             Provider
             <select
@@ -359,7 +389,9 @@ export function AssistantPane({
           <button type="button" disabled={sendDisabled} onClick={submitMessage}>
             {isEditBlockedByPendingEdit
               ? "Keep or reject edit first"
-              : sendButtonLabel({ isRunning, canSubmit, isProviderBlocked, provider })}
+              : target === "all-documents"
+                ? "Send to all documents"
+                : sendButtonLabel({ isRunning, canSubmit, isProviderBlocked, provider })}
           </button>
           {provider !== "lm-studio" ? (
             <span
@@ -373,6 +405,13 @@ export function AssistantPane({
             </span>
           ) : null}
         </div>
+        {batchStatus ? (
+          <p className="assistant-batch-status">
+            {batchStatus.isRunning
+              ? `Running on ${batchStatus.completed} of ${batchStatus.total} documents.`
+              : `Completed ${batchStatus.completed} documents: ${batchStatus.succeeded} succeeded, ${batchStatus.failed} failed.`}
+          </p>
+        ) : null}
       </div>
 
       <details className="assistant-import">

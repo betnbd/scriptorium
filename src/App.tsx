@@ -7,6 +7,7 @@ import { parseAssistantResponse } from "./assistant/responseParser";
 import { AppMenuBar } from "./components/AppMenuBar";
 import {
   AssistantPane,
+  type AssistantBatchStatus,
   type AssistantRequest,
 } from "./components/AssistantPane";
 import { EditorPane } from "./components/EditorPane";
@@ -47,6 +48,8 @@ export default function App() {
   const [isProviderStatusLoading, setIsProviderStatusLoading] = useState(false);
   const [assistantSessions, setAssistantSessions] = useState<Record<string, AssistantSession>>({});
   const [isAssistantOpen, setIsAssistantOpen] = useState(true);
+  const [assistantBatchStatus, setAssistantBatchStatus] =
+    useState<AssistantBatchStatus | null>(null);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [editorMode, setEditorMode] = useState<EditorMode>("visual");
   const [paneLayout, setPaneLayout] = useState<PaneLayout>(defaultPaneLayout);
@@ -816,12 +819,18 @@ export default function App() {
         anthropicModel: current.anthropicModel,
         anthropicEffort: current.anthropicEffort,
         lmStudioModel: current.lmStudioModel,
+        target: current.target,
         instruction: current.instruction,
       },
     }));
   }
 
   async function submitAssistantRequest(request: AssistantRequest) {
+    if (request.target === "all-documents") {
+      await submitFolderWideAssistantRequest(request);
+      return;
+    }
+
     if (!state.rootPath || !state.openFile || activeAssistantSession.isRunning) {
       return;
     }
@@ -887,6 +896,127 @@ export default function App() {
       );
     } catch (error) {
       showError(error);
+    } finally {
+      patchAssistantSession(submittedFilePath, { isRunning: false });
+    }
+  }
+
+  async function submitFolderWideAssistantRequest(request: AssistantRequest) {
+    if (!state.rootPath) {
+      return;
+    }
+
+    const markdownFiles = flattenProjectFiles(state.tree).filter(
+      (file) => file.isMarkdown,
+    );
+
+    setAssistantBatchStatus({
+      total: markdownFiles.length,
+      completed: 0,
+      succeeded: 0,
+      failed: 0,
+      isRunning: true,
+    });
+
+    let succeeded = 0;
+    let failed = 0;
+
+    for (const file of markdownFiles) {
+      try {
+        const draft = state.draftsByPath[file.relativePath];
+        const markdown =
+          draft?.markdown ??
+          (file.relativePath === state.openFile?.relativePath
+            ? state.openMarkdown
+            : (await tauriApi.readMarkdownFile(state.rootPath, file.relativePath))
+                .markdown);
+        await submitAssistantRequestForDocument({
+          request,
+          file,
+          markdown,
+          selection: null,
+        });
+        succeeded += 1;
+      } catch (error) {
+        failed += 1;
+        showError(error);
+      } finally {
+        const completed = succeeded + failed;
+        setAssistantBatchStatus({
+          total: markdownFiles.length,
+          completed,
+          succeeded,
+          failed,
+          isRunning: completed < markdownFiles.length,
+        });
+      }
+    }
+  }
+
+  async function submitAssistantRequestForDocument({
+    request,
+    file,
+    markdown,
+    selection,
+  }: {
+    request: AssistantRequest;
+    file: FileNode;
+    markdown: string;
+    selection: string | null;
+  }) {
+    if (!state.rootPath) {
+      return;
+    }
+
+    const submittedFilePath = file.relativePath;
+    const session = assistantSessions[submittedFilePath] ?? createAssistantSession(state.settings);
+    patchAssistantSession(submittedFilePath, { isRunning: true, mode: request.mode });
+    const guardedMarkdown = request.mode === "edit" ? markdown : undefined;
+    const targetMarkdown = selection?.trim() ? selection : markdown;
+    const context = selectRelevantContext({
+      documents: state.indexedDocuments,
+      targetPath: file.path,
+      instruction: `${request.instruction}\n${targetMarkdown}`,
+      limit: 4,
+    });
+    const prompt = buildAssistantPrompt({
+      mode: request.mode,
+      instruction: request.instruction,
+      systemPrompt: state.settings.assistantSystemPrompt,
+      targetLabel: selection?.trim()
+        ? `${file.relativePath} (current selection)`
+        : file.relativePath,
+      targetMarkdown,
+      projectFiles: flattenProjectFilePaths(state.tree),
+      context,
+      conversation: session.messages,
+    });
+    addAssistantMessage(submittedFilePath, {
+      role: "user",
+      content: formatAssistantUserMessage(request),
+    });
+
+    try {
+      const response =
+        request.provider === "lm-studio"
+          ? await tauriApi.sendLmStudioRequest(
+              state.settings.lmStudioBaseUrl,
+              request.model,
+              prompt,
+            )
+          : await tauriApi.sendCliAgentRequest(
+              request.provider,
+              state.rootPath,
+              prompt,
+              request.model,
+              request.effort,
+            );
+      importAssistantResponse(
+        response,
+        request.mode,
+        submittedFilePath,
+        guardedMarkdown,
+      );
     } finally {
       patchAssistantSession(submittedFilePath, { isRunning: false });
     }
@@ -1094,9 +1224,11 @@ export default function App() {
               anthropicModel={activeAssistantSession.anthropicModel}
               anthropicEffort={activeAssistantSession.anthropicEffort}
               lmStudioModel={activeAssistantSession.lmStudioModel}
+              target={activeAssistantSession.target}
               instruction={activeAssistantSession.instruction}
               importText={activeAssistantSession.importText}
               onFieldChange={(patch) => patchAssistantSession(activeAssistantPath, patch)}
+              batchStatus={assistantBatchStatus}
               providerStatuses={providerStatuses}
               targetLabel={
                 state.openFile
@@ -1270,6 +1402,12 @@ function flattenProjectFilePaths(nodes: FileNode[]): string[] {
 
     return [node.relativePath];
   });
+}
+
+function flattenProjectFiles(nodes: FileNode[]): FileNode[] {
+  return nodes.flatMap((node) =>
+    node.kind === "directory" ? flattenProjectFiles(node.children ?? []) : [node],
+  );
 }
 
 function formatAssistantUserMessage(request: AssistantRequest): string {
@@ -1616,6 +1754,7 @@ function createAssistantSession(settings: AppSettings): AssistantSession {
     anthropicModel: settings.anthropicModel,
     anthropicEffort: settings.anthropicEffort,
     lmStudioModel: settings.lmStudioModel,
+    target: "current-document",
     instruction: "",
     importText: "",
     isRunning: false,

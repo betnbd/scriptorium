@@ -41,8 +41,52 @@ describe("AssistantPane", () => {
       instruction: "Make it sharper",
       model: "opus",
       effort: "medium",
+      target: "current-document",
     });
     expect(screen.getByLabelText("Message")).toHaveValue("");
+  });
+
+  it("lets the user target all documents in the folder", async () => {
+    const user = userEvent.setup();
+    const props = renderPane();
+
+    expect(screen.getByLabelText("Target")).toHaveValue("current-document");
+    await user.selectOptions(screen.getByLabelText("Target"), "all-documents");
+    await user.type(screen.getByLabelText("Message"), "Check continuity");
+    await user.click(screen.getByRole("button", { name: "Send to all documents" }));
+
+    expect(props.onSubmit).toHaveBeenCalledWith(expect.objectContaining({
+      target: "all-documents",
+      instruction: "Check continuity",
+    }));
+  });
+
+  it("shows folder-wide batch progress and completion summaries", () => {
+    const { rerender } = render(
+      <AssistantPane
+        settings={defaultSettings}
+        messages={[]}
+        batchStatus={{ total: 5, completed: 2, succeeded: 2, failed: 0, isRunning: true }}
+        onSubmit={vi.fn()}
+        onImport={vi.fn()}
+        onClose={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText("Running on 2 of 5 documents.")).toBeInTheDocument();
+
+    rerender(
+      <AssistantPane
+        settings={defaultSettings}
+        messages={[]}
+        batchStatus={{ total: 5, completed: 5, succeeded: 4, failed: 1, isRunning: false }}
+        onSubmit={vi.fn()}
+        onImport={vi.fn()}
+        onClose={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText("Completed 5 documents: 4 succeeded, 1 failed.")).toBeInTheDocument();
   });
 
   it("lists Claude before OpenAI in the provider picker", () => {
@@ -79,6 +123,7 @@ describe("AssistantPane", () => {
       instruction: "Revise this scene",
       model: "opus",
       effort: "xhigh",
+      target: "current-document",
     });
   });
 

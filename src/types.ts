@@ -27,6 +27,7 @@ export type ProviderId =
   | "anthropic-subscription"
   | "lm-studio";
 export type AssistantMode = "chat" | "edit";
+export type AssistantTarget = "current-document" | "all-documents";
 export type ThemeId =
   | "paper"
   | "catppuccin-latte"
@@ -63,6 +64,7 @@ export interface AssistantSession {
   anthropicModel: string;
   anthropicEffort: string;
   lmStudioModel: string;
+  target: AssistantTarget;
   instruction: string;
   importText: string;
   isRunning: boolean;
