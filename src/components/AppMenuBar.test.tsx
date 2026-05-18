@@ -111,6 +111,19 @@ describe("AppMenuBar", () => {
     expect(props.onEditorCommand).toHaveBeenNthCalledWith(2, "bold");
   });
 
+  it("routes find commands from the edit menu", async () => {
+    const user = userEvent.setup();
+    const props = renderMenu();
+
+    await user.click(screen.getByText("Edit"));
+    await user.click(screen.getByRole("button", { name: "Find" }));
+    await user.click(screen.getByText("Edit"));
+    await user.click(screen.getByRole("button", { name: "Find and Replace" }));
+
+    expect(props.onEditorCommand).toHaveBeenNthCalledWith(1, "find");
+    expect(props.onEditorCommand).toHaveBeenNthCalledWith(2, "findAndReplace");
+  });
+
   it("toggles source mode from the view menu", async () => {
     const user = userEvent.setup();
     const props = renderMenu();

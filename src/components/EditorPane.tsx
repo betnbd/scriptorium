@@ -3,12 +3,19 @@ import { EditorContent, useEditor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Underline from "@tiptap/extension-underline";
 import { FileText, FolderOpen } from "lucide-react";
-import type { ChangeEvent, ReactNode, SyntheticEvent } from "react";
+import type {
+  ChangeEvent,
+  Dispatch,
+  ReactNode,
+  SetStateAction,
+  SyntheticEvent,
+} from "react";
 import {
   forwardRef,
   useEffect,
   useImperativeHandle,
   useRef,
+  useState,
 } from "react";
 
 export type EditorMode = "visual" | "markdown";
@@ -37,7 +44,9 @@ export type EditorCommand =
   | "strike"
   | "inlineCode"
   | "link"
-  | "clearFormat";
+  | "clearFormat"
+  | "find"
+  | "findAndReplace";
 
 export interface EditorPaneHandle {
   runCommand: (command: EditorCommand) => void;
@@ -80,6 +89,71 @@ export const EditorPane = forwardRef<EditorPaneHandle, EditorPaneProps>(function
   },
   ref,
 ) {
+  const [findState, setFindState] = useState({
+    isOpen: false,
+    isReplaceOpen: false,
+    query: "",
+    replacement: "",
+    activeIndex: 0,
+  });
+
+  useEffect(() => {
+    setFindState({
+      isOpen: false,
+      isReplaceOpen: false,
+      query: "",
+      replacement: "",
+      activeIndex: 0,
+    });
+  }, [openFile?.relativePath]);
+
+  useEffect(() => {
+    function onKeyDown(event: KeyboardEvent) {
+      if (!event.ctrlKey) return;
+      if (event.key.toLowerCase() === "f") {
+        event.preventDefault();
+        handleFindCommand("find");
+      }
+      if (event.key.toLowerCase() === "h") {
+        event.preventDefault();
+        handleFindCommand("findAndReplace");
+      }
+    }
+
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  });
+
+  const matches = findPlainTextMatches(markdown, findState.query);
+  const findBar = findState.isOpen ? (
+    <FindBar
+      state={findState}
+      matchCount={matches.length}
+      onChange={setFindState}
+      onReplaceCurrent={() => {
+        const match = matches[findState.activeIndex];
+        if (!match) return;
+        onChange(replaceMatch(markdown, match, findState.replacement));
+      }}
+      onReplaceAll={() => {
+        if (!findState.query) return;
+        onChange(markdown.split(findState.query).join(findState.replacement));
+      }}
+    />
+  ) : null;
+
+  function handleFindCommand(command: EditorCommand) {
+    if (command === "find" || command === "findAndReplace") {
+      setFindState((state) => ({
+        ...state,
+        isOpen: true,
+        isReplaceOpen: command === "findAndReplace",
+      }));
+      return true;
+    }
+    return false;
+  }
+
   if (!openFile) {
     return (
       <section className="editor-pane editor-pane-empty" aria-label="No file open">
@@ -121,6 +195,8 @@ export const EditorPane = forwardRef<EditorPaneHandle, EditorPaneProps>(function
         onSave={onSave}
         onModeChange={onModeChange}
         onSelectionChange={onSelectionChange}
+        findBar={findBar}
+        onFindCommand={handleFindCommand}
       />
     );
   }
@@ -139,6 +215,8 @@ export const EditorPane = forwardRef<EditorPaneHandle, EditorPaneProps>(function
         onSave={onSave}
         onModeChange={onModeChange}
         onSelectionChange={onSelectionChange}
+        findBar={findBar}
+        onFindCommand={handleFindCommand}
       />
     );
   }
@@ -156,12 +234,160 @@ export const EditorPane = forwardRef<EditorPaneHandle, EditorPaneProps>(function
       onSave={onSave}
       onModeChange={onModeChange}
       onSelectionChange={onSelectionChange}
+      findBar={findBar}
+      onFindCommand={handleFindCommand}
     />
   );
 });
 
+function FindBar({
+  state,
+  matchCount,
+  onChange,
+  onReplaceCurrent,
+  onReplaceAll,
+}: {
+  state: {
+    isOpen: boolean;
+    isReplaceOpen: boolean;
+    query: string;
+    replacement: string;
+    activeIndex: number;
+  };
+  matchCount: number;
+  onChange: Dispatch<
+    SetStateAction<{
+      isOpen: boolean;
+      isReplaceOpen: boolean;
+      query: string;
+      replacement: string;
+      activeIndex: number;
+    }>
+  >;
+  onReplaceCurrent: () => void;
+  onReplaceAll: () => void;
+}) {
+  return (
+    <div className="find-bar" role="search">
+      <label>
+        Find
+        <input
+          aria-label="Find"
+          value={state.query}
+          onKeyDown={(event) => {
+            if (event.key === "Enter") {
+              event.preventDefault();
+              onChange((current) => ({
+                ...current,
+                activeIndex:
+                  matchCount === 0
+                    ? 0
+                    : event.shiftKey
+                      ? (current.activeIndex - 1 + matchCount) % matchCount
+                      : (current.activeIndex + 1) % matchCount,
+              }));
+            }
+            if (event.key === "Escape") {
+              onChange((current) => ({ ...current, isOpen: false }));
+            }
+          }}
+          onChange={(event) => {
+            const query = event.currentTarget.value;
+            onChange((current) => ({
+              ...current,
+              query,
+              activeIndex: 0,
+            }));
+          }}
+        />
+      </label>
+      {state.isReplaceOpen ? (
+        <label>
+          Replace
+          <input
+            aria-label="Replace"
+            value={state.replacement}
+            onChange={(event) => {
+              const replacement = event.currentTarget.value;
+              onChange((current) => ({
+                ...current,
+                replacement,
+              }));
+            }}
+          />
+        </label>
+      ) : null}
+      <span>{matchCount} {matchCount === 1 ? "match" : "matches"}</span>
+      <button
+        type="button"
+        onClick={() =>
+          onChange((current) => ({
+            ...current,
+            activeIndex:
+              matchCount === 0
+                ? 0
+                : (current.activeIndex - 1 + matchCount) % matchCount,
+          }))
+        }
+        disabled={!matchCount}
+      >
+        Previous
+      </button>
+      <button
+        type="button"
+        onClick={() =>
+          onChange((current) => ({
+            ...current,
+            activeIndex:
+              matchCount === 0 ? 0 : (current.activeIndex + 1) % matchCount,
+          }))
+        }
+        disabled={!matchCount}
+      >
+        Next
+      </button>
+      <button type="button" onClick={onReplaceCurrent} disabled={!matchCount || !state.isReplaceOpen}>
+        Replace
+      </button>
+      <button type="button" onClick={onReplaceAll} disabled={!matchCount || !state.isReplaceOpen}>
+        Replace all
+      </button>
+      <button
+        type="button"
+        aria-label="Close find"
+        onClick={() =>
+          onChange((current) => ({ ...current, isOpen: false }))
+        }
+      >
+        Close
+      </button>
+    </div>
+  );
+}
+
+function findPlainTextMatches(markdown: string, query: string) {
+  if (!query) return [];
+  const matches: Array<{ start: number; end: number }> = [];
+  let start = markdown.indexOf(query);
+  while (start !== -1) {
+    matches.push({ start, end: start + query.length });
+    start = markdown.indexOf(query, start + query.length);
+  }
+  return matches;
+}
+
+function replaceMatch(
+  markdown: string,
+  match: { start: number; end: number },
+  replacement: string,
+) {
+  return markdown.slice(0, match.start) + replacement + markdown.slice(match.end);
+}
+
 const RichMarkdownEditor = forwardRef<EditorPaneHandle, EditorPaneProps & {
   openFile: NonNullable<EditorPaneProps["openFile"]>;
+  findBar?: ReactNode;
+  onFindCommand?: (command: EditorCommand) => boolean;
 }>(function RichMarkdownEditor({
   openFile,
   markdown,
@@ -173,6 +399,8 @@ const RichMarkdownEditor = forwardRef<EditorPaneHandle, EditorPaneProps & {
   onSave,
   onModeChange,
   onSelectionChange,
+  findBar,
+  onFindCommand,
 }, ref) {
   const loadedContent = useRef<{
     relativePath: string;
@@ -234,6 +462,9 @@ const RichMarkdownEditor = forwardRef<EditorPaneHandle, EditorPaneProps & {
     ref,
     () => ({
       runCommand(command) {
+        if (onFindCommand?.(command)) {
+          return;
+        }
         if (!editor) {
           return;
         }
@@ -241,7 +472,7 @@ const RichMarkdownEditor = forwardRef<EditorPaneHandle, EditorPaneProps & {
         runRichEditorCommand(editor, command);
       },
     }),
-    [editor],
+    [editor, onFindCommand],
   );
 
   return (
@@ -255,6 +486,7 @@ const RichMarkdownEditor = forwardRef<EditorPaneHandle, EditorPaneProps & {
         onSave={onSave}
         onModeChange={onModeChange}
       />
+      {findBar}
       {stagedDiff ? (
         <StagedDiffView
           previousMarkdown={stagedDiff.previousMarkdown}
@@ -272,6 +504,8 @@ const SourceMarkdownEditor = forwardRef<
   EditorPaneProps & {
     children?: ReactNode;
     openFile: NonNullable<EditorPaneProps["openFile"]>;
+    findBar?: ReactNode;
+    onFindCommand?: (command: EditorCommand) => boolean;
   }
 >(function SourceMarkdownEditor(
   {
@@ -286,6 +520,8 @@ const SourceMarkdownEditor = forwardRef<
     onModeChange,
     onSelectionChange,
     children,
+    findBar,
+    onFindCommand,
   },
   ref,
 ) {
@@ -295,6 +531,9 @@ const SourceMarkdownEditor = forwardRef<
     ref,
     () => ({
       runCommand(command) {
+        if (onFindCommand?.(command)) {
+          return;
+        }
         const textarea = editorRef.current;
 
         if (!textarea) {
@@ -309,7 +548,7 @@ const SourceMarkdownEditor = forwardRef<
         });
       },
     }),
-    [markdown, onChange],
+    [markdown, onChange, onFindCommand],
   );
 
   function updateSelection(event: SyntheticEvent<HTMLTextAreaElement>) {
@@ -335,6 +574,7 @@ const SourceMarkdownEditor = forwardRef<
       >
         {children}
       </EditorHeader>
+      {findBar}
       {stagedDiff ? (
         <StagedDiffView
           previousMarkdown={stagedDiff.previousMarkdown}
@@ -362,6 +602,8 @@ const LargeMarkdownEditor = forwardRef<
   EditorPaneHandle,
   EditorPaneProps & {
     openFile: NonNullable<EditorPaneProps["openFile"]>;
+    findBar?: ReactNode;
+    onFindCommand?: (command: EditorCommand) => boolean;
   }
 >(function LargeMarkdownEditor(props, ref) {
   if (props.mode === "markdown") {

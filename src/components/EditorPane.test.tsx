@@ -3,6 +3,7 @@ import userEvent from "@testing-library/user-event";
 import type { ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { EditorPane } from "./EditorPane";
+import type { EditorPaneHandle } from "./EditorPane";
 
 const tiptap = vi.hoisted(() => ({
   useEditorCalls: 0,
@@ -161,6 +162,54 @@ describe("EditorPane", () => {
     expect(
       screen.queryByRole("textbox", { name: "Manuscript editor" }),
     ).not.toBeInTheDocument();
+  });
+
+  it("finds and replaces text in the active draft", async () => {
+    const user = userEvent.setup();
+    const ref = { current: null as EditorPaneHandle | null };
+    const onChange = vi.fn();
+
+    render(
+      <EditorPane
+        ref={ref}
+        openFile={{ relativePath: "chapters/chapter-1.md", name: "chapter-1.md" }}
+        markdown="red door red"
+        mode="markdown"
+        isDirty={false}
+        onChange={onChange}
+        onSave={vi.fn()}
+        onModeChange={vi.fn()}
+      />,
+    );
+
+    act(() => ref.current?.runCommand("findAndReplace"));
+    await user.type(screen.getByLabelText("Find"), "red");
+    expect(screen.getByText("2 matches")).toBeInTheDocument();
+    await user.type(screen.getByLabelText("Replace"), "blue");
+    await user.click(screen.getByRole("button", { name: "Replace all" }));
+
+    expect(onChange).toHaveBeenCalledWith("blue door blue");
+  });
+
+  it("opens find and find-and-replace with keyboard shortcuts", () => {
+    render(
+      <EditorPane
+        openFile={{ relativePath: "chapters/chapter-1.md", name: "chapter-1.md" }}
+        markdown="red door red"
+        mode="markdown"
+        isDirty={false}
+        onChange={vi.fn()}
+        onSave={vi.fn()}
+        onModeChange={vi.fn()}
+      />,
+    );
+
+    fireEvent.keyDown(window, { key: "f", ctrlKey: true });
+    expect(screen.getByLabelText("Find")).toBeInTheDocument();
+    expect(screen.queryByLabelText("Replace")).not.toBeInTheDocument();
+
+    fireEvent.keyDown(window, { key: "h", ctrlKey: true });
+    expect(screen.getByLabelText("Replace")).toBeInTheDocument();
   });
 
   it("gives the editor surface an accessible name", () => {

@@ -14,6 +14,7 @@ export interface AppState {
   openMarkdown: string;
   savedMarkdown: string;
   isDirty: boolean;
+  draftsByPath: Record<string, { markdown: string; savedMarkdown: string }>;
   assistantMessages: AssistantMessage[];
   assistantMessagesByPath: Record<string, AssistantMessage[]>;
   settings: AppSettings;
@@ -51,7 +52,7 @@ export const defaultSettings: AppSettings = {
   openaiModel: "gpt-5.5",
   openaiEffort: "medium",
   anthropicUrl: "https://claude.ai/new",
-  anthropicModel: "sonnet",
+  anthropicModel: "opus",
   anthropicEffort: "medium",
   lmStudioBaseUrl: "http://127.0.0.1:1234/v1",
   lmStudioModel: "local-model",
@@ -74,6 +75,7 @@ export const initialAppState: AppState = {
   openMarkdown: "",
   savedMarkdown: "",
   isDirty: false,
+  draftsByPath: {},
   assistantMessages: [],
   assistantMessagesByPath: {},
   settings: defaultSettings,
@@ -92,19 +94,23 @@ export function appReducer(state: AppState, action: AppAction): AppState {
         openMarkdown: "",
         savedMarkdown: "",
         isDirty: false,
+        draftsByPath: {},
         assistantMessages: [],
         assistantMessagesByPath: {},
       };
     case "fileOpened":
+      {
+        const draft = state.draftsByPath[action.file.relativePath];
       return {
         ...state,
         openFile: action.file,
-        openMarkdown: action.markdown,
-        savedMarkdown: action.markdown,
-        isDirty: false,
+        openMarkdown: draft?.markdown ?? action.markdown,
+        savedMarkdown: draft?.savedMarkdown ?? action.markdown,
+        isDirty: draft ? draft.markdown !== draft.savedMarkdown : false,
         assistantMessages:
           state.assistantMessagesByPath[action.file.relativePath] ?? [],
       };
+      }
     case "openFileMetadataUpdated":
       if (!state.openFile) {
         return state;
@@ -128,17 +134,39 @@ export function appReducer(state: AppState, action: AppAction): AppState {
         assistantMessages: [],
       };
     case "editorChanged":
+      if (!state.openFile) {
+        return state;
+      }
+
       return {
         ...state,
         openMarkdown: action.markdown,
         isDirty: action.markdown !== state.savedMarkdown,
+        draftsByPath: {
+          ...state.draftsByPath,
+          [state.openFile.relativePath]: {
+            markdown: action.markdown,
+            savedMarkdown: state.savedMarkdown,
+          },
+        },
       };
     case "fileSaved":
+      if (!state.openFile) {
+        return state;
+      }
+
       return {
         ...state,
         openMarkdown: action.markdown,
         savedMarkdown: action.markdown,
         isDirty: false,
+        draftsByPath: {
+          ...state.draftsByPath,
+          [state.openFile.relativePath]: {
+            markdown: action.markdown,
+            savedMarkdown: action.markdown,
+          },
+        },
       };
     case "treeUpdated":
       return {

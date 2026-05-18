@@ -23,13 +23,13 @@ describe("AssistantPane", () => {
     vi.useRealTimers();
   });
 
-  it("starts in chat mode and submits a clean in-app request", async () => {
+  it("starts in edit mode on Anthropic Opus and submits a clean in-app request", async () => {
     const user = userEvent.setup();
     const props = renderPane();
 
-    expect(screen.getByRole("radio", { name: "Chat" })).toBeChecked();
+    expect(screen.getByRole("radio", { name: "Edit" })).toBeChecked();
     expect(screen.getByLabelText("Provider")).toHaveValue("anthropic-subscription");
-    expect(screen.getByLabelText("Model")).toHaveValue("sonnet");
+    expect(screen.getByLabelText("Model")).toHaveValue("opus");
     expect(screen.getByLabelText("Effort")).toHaveValue("medium");
 
     await user.type(screen.getByLabelText("Message"), "Make it sharper");
@@ -37,9 +37,9 @@ describe("AssistantPane", () => {
 
     expect(props.onSubmit).toHaveBeenCalledWith({
       provider: "anthropic-subscription",
-      mode: "chat",
+      mode: "edit",
       instruction: "Make it sharper",
-      model: "sonnet",
+      model: "opus",
       effort: "medium",
     });
     expect(screen.getByLabelText("Message")).toHaveValue("");

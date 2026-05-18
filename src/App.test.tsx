@@ -146,7 +146,7 @@ describe("App", () => {
     await openAssistant(user);
 
     expect(screen.getByLabelText("AI conversation")).toBeInTheDocument();
-    expect(screen.getByRole("radio", { name: "Chat" })).toBeChecked();
+    expect(screen.getByRole("radio", { name: "Edit" })).toBeChecked();
     expect(screen.queryByText("Terminal-backed conversation")).not.toBeInTheDocument();
   });
 
@@ -531,6 +531,7 @@ describe("App", () => {
       await screen.findByRole("button", { name: "Open chapter-1.md" }),
     );
     await openAssistant(user);
+    await user.click(screen.getByRole("radio", { name: "Chat" }));
     await user.selectOptions(
       screen.getByLabelText("Provider"),
       "openai-subscription",
@@ -663,6 +664,7 @@ describe("App", () => {
       await screen.findByRole("button", { name: "Open chapter-1.md" }),
     );
     await openAssistant(user);
+    await user.click(screen.getByRole("radio", { name: "Chat" }));
     await user.type(screen.getByLabelText("Message"), "Can you read this?");
     await user.click(screen.getByRole("button", { name: "Send to Claude" }));
     await user.click(screen.getByRole("button", { name: "Edit Text" }));
@@ -712,6 +714,56 @@ describe("App", () => {
     ).not.toBeInTheDocument();
   });
 
+  it("keeps a hidden edit request alive while another file is being revised", async () => {
+    const user = userEvent.setup();
+    const chapter = fileNode("chapter-1.md");
+    const scene = fileNode("scene.md");
+    let resolveEditResponse: (value: string) => void = () => undefined;
+    mockProjectFolder([chapter, scene]);
+    mockMarkdownReads({
+      "chapter-1.md": "# Chapter 1\n\nOld text.",
+      "scene.md": "# Scene\n\nDifferent text.",
+    });
+    tauriApiMock.sendCliAgentRequest.mockReturnValueOnce(
+      new Promise((resolve) => {
+        resolveEditResponse = resolve;
+      }),
+    );
+
+    render(<App />);
+
+    await user.click(screen.getByRole("button", { name: "Open Folder" }));
+    await user.click(
+      await screen.findByRole("button", { name: "Open chapter-1.md" }),
+    );
+    await openAssistant(user);
+    await user.click(screen.getByRole("radio", { name: "Edit" }));
+    await user.type(screen.getByLabelText("Message"), "Revise this chapter");
+    await user.click(screen.getByRole("button", { name: "Send to Claude" }));
+
+    await user.click(await screen.findByRole("button", { name: "Open scene.md" }));
+    await user.click(screen.getByRole("button", { name: "Edit Text" }));
+    resolveEditResponse("# Chapter 1\n\nImproved text.");
+
+    await waitFor(() => {
+      expect(screen.queryByText("The open file changed before the assistant response returned.")).not.toBeInTheDocument();
+    });
+    expect(screen.getByLabelText("Current markdown")).toHaveTextContent(
+      "# Scene Different text. Changed lantern.",
+    );
+    expect(await screen.findByText("Edit ready")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Save" }));
+
+    await user.click(
+      await screen.findByRole("button", { name: "Open chapter-1.md" }),
+    );
+    expect(screen.getByText("AI edit staged")).toBeInTheDocument();
+    expect(screen.getByLabelText("Current markdown")).toHaveTextContent(
+      "# Chapter 1 Old text.",
+    );
+  });
+
   it("starts each file with its own assistant controls when switching files", async () => {
     const user = userEvent.setup();
     const chapter = fileNode("chapter-1.md");
@@ -740,7 +792,7 @@ describe("App", () => {
     expect(screen.getByLabelText("Provider")).toHaveValue(
       "anthropic-subscription",
     );
-    expect(screen.getByLabelText("Model")).toHaveValue("sonnet");
+    expect(screen.getByLabelText("Model")).toHaveValue("opus");
     expect(screen.getByLabelText("Effort")).toHaveValue("medium");
   });
 
@@ -822,6 +874,7 @@ describe("App", () => {
     await user.click(screen.getByRole("button", { name: "Save" }));
     await user.click(screen.getByRole("button", { name: "Open chapter-1.md" }));
     await openAssistant(user);
+    await user.click(screen.getByRole("radio", { name: "Chat" }));
     await user.type(screen.getByLabelText("Message"), "Tighten this");
     await user.click(screen.getByRole("button", { name: "Send to Claude" }));
 
@@ -829,7 +882,7 @@ describe("App", () => {
       "anthropic-subscription",
       "/novel",
       expect.stringContaining("Changed lantern."),
-      "sonnet",
+      "opus",
       "medium",
     );
   });
@@ -852,6 +905,7 @@ describe("App", () => {
       await screen.findByRole("button", { name: "Open chapter-1.md" }),
     );
     await openAssistant(user);
+    await user.click(screen.getByRole("radio", { name: "Chat" }));
     await user.type(screen.getByLabelText("Message"), "Can you read this?");
     await user.click(screen.getByRole("button", { name: "Send to Claude" }));
     await screen.findByText("The chapter is readable.");
@@ -862,21 +916,21 @@ describe("App", () => {
       "anthropic-subscription",
       "/novel",
       expect.stringContaining("Conversation so far:"),
-      "sonnet",
+      "opus",
       "medium",
     );
     expect(tauriApiMock.sendCliAgentRequest).toHaveBeenLastCalledWith(
       "anthropic-subscription",
       "/novel",
       expect.stringContaining("User: Can you read this?"),
-      "sonnet",
+      "opus",
       "medium",
     );
     expect(tauriApiMock.sendCliAgentRequest).toHaveBeenLastCalledWith(
       "anthropic-subscription",
       "/novel",
       expect.stringContaining("Assistant: The chapter is readable."),
-      "sonnet",
+      "opus",
       "medium",
     );
   });
@@ -897,6 +951,7 @@ describe("App", () => {
       await screen.findByRole("button", { name: "Open chapter-1.md" }),
     );
     await openAssistant(user);
+    await user.click(screen.getByRole("radio", { name: "Chat" }));
     await user.type(screen.getByLabelText("Message"), "Can you read this?");
     await user.click(screen.getByRole("button", { name: "Send to Claude" }));
     await screen.findByText("Readable.");
@@ -926,6 +981,7 @@ describe("App", () => {
       await screen.findByRole("button", { name: "Open chapter-1.md" }),
     );
     await openAssistant(user);
+    await user.click(screen.getByRole("radio", { name: "Chat" }));
     await user.type(screen.getByLabelText("Message"), "Read chapter");
     await user.click(screen.getByRole("button", { name: "Send to Claude" }));
     await screen.findByText("Chapter response.");
@@ -936,6 +992,7 @@ describe("App", () => {
       screen.getByText("Start a conversation about the open file."),
     ).toBeInTheDocument();
 
+    await user.click(screen.getByRole("radio", { name: "Chat" }));
     await user.type(screen.getByLabelText("Message"), "Read notes");
     await user.click(screen.getByRole("button", { name: "Send to Claude" }));
     await screen.findByText("Notes response.");
@@ -945,6 +1002,34 @@ describe("App", () => {
     );
     expect(screen.getByText("Chapter response.")).toBeInTheDocument();
     expect(screen.queryByText("Notes response.")).not.toBeInTheDocument();
+  });
+
+  it("restores unsaved edits after switching away and back within a project session", async () => {
+    const user = userEvent.setup();
+    const chapter = fileNode("chapter-1.md");
+    const notes = fileNode("notes.md");
+    mockProjectFolder([chapter, notes]);
+    mockMarkdownReads({
+      "chapter-1.md": "# Chapter 1\n\nOld text.",
+      "notes.md": "# Notes\n\nOld clue.",
+    });
+
+    render(<App />);
+
+    await user.click(screen.getByRole("button", { name: "Open Folder" }));
+    await user.click(
+      await screen.findByRole("button", { name: "Open chapter-1.md" }),
+    );
+    await user.click(screen.getByRole("button", { name: "Edit Text" }));
+    await user.click(await screen.findByRole("button", { name: "Open notes.md" }));
+    await user.click(
+      await screen.findByRole("button", { name: "Open chapter-1.md" }),
+    );
+
+    expect(screen.getByLabelText("Current markdown")).toHaveTextContent(
+      "# Chapter 1 Old text. Changed lantern.",
+    );
+    expect(screen.getByText("Unsaved")).toBeInTheDocument();
   });
 
   it("imports an edit into the editor and can reject it before saving", async () => {
@@ -1033,6 +1118,7 @@ describe("App", () => {
       await screen.findByRole("button", { name: "Open chapter-1.md" }),
     );
     await openAssistant(user);
+    await user.click(screen.getByRole("radio", { name: "Chat" }));
     await user.click(screen.getByText("Paste response"));
     await user.type(screen.getByLabelText("Import response"), "- Raise the stakes.");
     await user.click(screen.getByRole("button", { name: "Import" }));

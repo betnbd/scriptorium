@@ -82,7 +82,7 @@ export function AssistantPane({
 }: AssistantPaneProps) {
   const [localFields, setLocalFields] = useState({
     provider: settings.defaultProvider,
-    mode: "chat" as AssistantMode,
+    mode: "edit" as AssistantMode,
     openaiModel: settings.openaiModel,
     openaiEffort: settings.openaiEffort,
     anthropicModel: settings.anthropicModel,

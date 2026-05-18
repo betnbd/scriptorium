@@ -302,10 +302,6 @@ export default function App() {
       return;
     }
 
-    if (!shouldSwitchFile(state.isDirty, confirmDiscardChanges)) {
-      return;
-    }
-
     try {
       const opened = await tauriApi.readMarkdownFile(state.rootPath, path);
 
@@ -908,6 +904,8 @@ export default function App() {
     if (
       mode === "edit" &&
       expectedMarkdown !== undefined &&
+      (!expectedFilePath ||
+        expectedFilePath === liveEditorRef.current.relativePath) &&
       liveEditorRef.current.markdown !== expectedMarkdown
     ) {
       showError("The open file changed before the assistant response returned.");
@@ -1609,7 +1607,7 @@ function parseEnvBoolean(value: string | undefined): boolean | null {
 function createAssistantSession(settings: AppSettings): AssistantSession {
   return {
     messages: [],
-    mode: "chat",
+    mode: "edit",
     provider: settings.defaultProvider,
     openaiModel: settings.openaiModel,
     openaiEffort: settings.openaiEffort,

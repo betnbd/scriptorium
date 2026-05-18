@@ -184,6 +184,19 @@ export function AppMenuBar({
             shortcut="Ctrl+A"
             onClick={() => onEditorCommand("selectAll")}
           />
+          <MenuDivider />
+          <MenuItem
+            disabled={!canUseEditor}
+            label="Find"
+            shortcut="Ctrl+F"
+            onClick={() => onEditorCommand("find")}
+          />
+          <MenuItem
+            disabled={!canUseEditor}
+            label="Find and Replace"
+            shortcut="Ctrl+H"
+            onClick={() => onEditorCommand("findAndReplace")}
+          />
         </Menu>
         <Menu
           isOpen={openMenu === "Paragraph"}

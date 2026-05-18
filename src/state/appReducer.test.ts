@@ -49,6 +49,37 @@ describe("appReducer", () => {
     expect(changed.openMarkdown).toContain("Changed.");
   });
 
+  it("restores an unsaved file draft when reopening it in the same project session", () => {
+    const file = {
+      path: "/novel/chapter-1.md",
+      relativePath: "chapter-1.md",
+      name: "chapter-1.md",
+      extension: "md",
+      kind: "file" as const,
+      isMarkdown: true,
+      modifiedAt: 10,
+      size: 42,
+    };
+    const opened = appReducer(initialAppState, {
+      type: "fileOpened",
+      file,
+      markdown: "# Chapter 1",
+    });
+    const changed = appReducer(opened, {
+      type: "editorChanged",
+      markdown: "# Chapter 1\n\nChanged.",
+    });
+    const reopened = appReducer(changed, {
+      type: "fileOpened",
+      file,
+      markdown: "# Chapter 1 from disk",
+    });
+
+    expect(reopened.openMarkdown).toBe("# Chapter 1\n\nChanged.");
+    expect(reopened.savedMarkdown).toBe("# Chapter 1");
+    expect(reopened.isDirty).toBe(true);
+  });
+
   it("resets assistant messages when a project opens", () => {
     const withMessage = {
       ...initialAppState,
@@ -134,7 +165,7 @@ describe("appReducer", () => {
     expect(state.settings.assistantSystemPrompt).toBe(
       "You are helping revise a novel draft.",
     );
-    expect(state.settings.anthropicModel).toBe("sonnet");
+    expect(state.settings.anthropicModel).toBe("opus");
     expect(state.settings.anthropicEffort).toBe("medium");
     expect(state.settings.themeId).toBe("paper");
     expect(state.settings.editorFont).toBe("literary");

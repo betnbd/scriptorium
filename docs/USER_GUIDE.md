@@ -57,3 +57,7 @@ Open **File > Settings** or **AI > AI Settings**.
 ## Project Preferences
 
 Project preferences are off by default. If enabled in Settings, Scriptorium reads `.scriptorium.env` from the opened folder.
+
+### Find and Replace
+
+Use **Edit → Find** (`Ctrl+F`) to search the current file, or **Edit → Find and Replace** (`Ctrl+H`) to replace text in the current file. Replacements update the open draft immediately but still follow explicit-save behavior: press **Save** when you want to write them to disk.
