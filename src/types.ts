@@ -69,6 +69,7 @@ export interface AssistantSession {
   pendingEdit: AssistantPendingEdit | null;
   isPendingDiffVisible: boolean;
   selection: string | null;
+  unseenStatus: "reply-ready" | "edit-ready" | null;
 }
 
 export interface ProviderStatus {

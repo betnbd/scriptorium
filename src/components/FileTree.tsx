@@ -24,6 +24,7 @@ export interface FileTreeProps {
   onDelete?: (path: string) => void;
   onMove?: (path: string) => void;
   activePath?: string | null;
+  assistantActivityByPath?: Record<string, "Working" | "Reply ready" | "Edit ready">;
 }
 
 export function FileTree({
@@ -37,6 +38,7 @@ export function FileTree({
   onDelete,
   onMove,
   activePath,
+  assistantActivityByPath = {},
 }: FileTreeProps) {
   const [expandedPaths, setExpandedPaths] = useState<Set<string>>(
     () => new Set(collectDirectoryPaths(nodes)),
@@ -120,6 +122,7 @@ export function FileTree({
             onDelete={onDelete}
             onMove={onMove}
             activePath={activePath}
+            assistantActivityByPath={assistantActivityByPath}
             expandedPaths={expandedPaths}
             onToggleDirectory={toggleDirectory}
           />
@@ -152,6 +155,7 @@ interface FileTreeNodesProps
     | "onDelete"
     | "onMove"
     | "activePath"
+    | "assistantActivityByPath"
   > {
   nodes: FileNode[];
   depth: number;
@@ -189,6 +193,7 @@ function FileTreeNode({
   onDelete,
   onMove,
   activePath,
+  assistantActivityByPath,
   expandedPaths,
   onToggleDirectory,
 }: FileTreeNodeProps) {
@@ -196,6 +201,7 @@ function FileTreeNode({
   const children = node.children ?? [];
   const isActive = activePath === node.relativePath;
   const isExpanded = isDirectory && expandedPaths.has(node.relativePath);
+  const assistantActivity = assistantActivityByPath?.[node.relativePath];
   const rowClassName = [
     "file-tree-row",
     isDirectory ? "is-directory" : "is-file",
@@ -255,6 +261,15 @@ function FileTreeNode({
         ) : (
           <span className="file-tree-name">{node.name}</span>
         )}
+        {!isDirectory && assistantActivity ? (
+          <span
+            className={`file-tree-assistant-status is-${assistantActivity
+              .toLowerCase()
+              .replace(" ", "-")}`}
+          >
+            {assistantActivity}
+          </span>
+        ) : null}
         <div className="file-tree-row-actions">
           {isDirectory ? (
             <>
@@ -315,6 +330,7 @@ function FileTreeNode({
           onDelete={onDelete}
           onMove={onMove}
           activePath={activePath}
+          assistantActivityByPath={assistantActivityByPath}
           expandedPaths={expandedPaths}
           onToggleDirectory={onToggleDirectory}
         />

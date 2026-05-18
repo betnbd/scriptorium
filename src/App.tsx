@@ -309,6 +309,7 @@ export default function App() {
     try {
       const opened = await tauriApi.readMarkdownFile(state.rootPath, path);
 
+      patchAssistantSession(path, { unseenStatus: null });
       dispatch({
         type: "fileOpened",
         file: opened.file,
@@ -897,28 +898,34 @@ export default function App() {
     }
 
     if (mode === "chat") {
-      addAssistantMessage(expectedFilePath ?? activeAssistantPath, { role: "assistant", content: response.trim() });
+      const targetPath = expectedFilePath ?? activeAssistantPath;
+      addAssistantMessage(targetPath, { role: "assistant", content: response.trim() });
+      if (targetPath && targetPath !== activeAssistantPath) {
+        patchAssistantSession(targetPath, { unseenStatus: "reply-ready" });
+      }
       return;
     }
 
     try {
       const parsed = parseAssistantResponse(mode, response);
-      const currentMarkdown =
-        expectedFilePath === undefined
-          ? state.openMarkdown
-          : liveEditorRef.current.markdown;
+      const isVisibleTarget = !expectedFilePath || expectedFilePath === liveEditorRef.current.relativePath;
+      const currentMarkdown = isVisibleTarget
+        ? liveEditorRef.current.markdown
+        : expectedMarkdown ?? state.openMarkdown;
       const nextMarkdown = applyAssistantResult(currentMarkdown, parsed);
 
       const targetPath = expectedFilePath ?? activeAssistantPath;
 
       if (parsed.kind === "edit") {
-        dispatch({ type: "editorChanged", markdown: nextMarkdown });
+        if (isVisibleTarget) {
+          dispatch({ type: "editorChanged", markdown: nextMarkdown });
+        }
         patchAssistantSession(targetPath, { pendingEdit: {
           mode: "edit",
           response: response.trim(),
           previousMarkdown: currentMarkdown,
           nextMarkdown,
-        }, isPendingDiffVisible: true });
+        }, isPendingDiffVisible: true, unseenStatus: isVisibleTarget ? null : "edit-ready" });
       }
 
       addAssistantMessage(targetPath, { role: "assistant", content: response.trim() });
@@ -1017,6 +1024,7 @@ export default function App() {
             onDelete={deleteEntry}
             onMove={moveEntry}
             activePath={state.openFile?.relativePath}
+            assistantActivityByPath={assistantActivityByPath(assistantSessions)}
           />
         </aside>
         <PaneResizer
@@ -1596,5 +1604,23 @@ function createAssistantSession(settings: AppSettings): AssistantSession {
     pendingEdit: null,
     isPendingDiffVisible: false,
     selection: null,
+    unseenStatus: null,
   };
+}
+
+function assistantActivityByPath(sessions: Record<string, AssistantSession>) {
+  return Object.fromEntries(
+    Object.entries(sessions)
+      .map(([path, session]) => [
+        path,
+        session.isRunning
+          ? "Working"
+          : session.unseenStatus === "edit-ready"
+            ? "Edit ready"
+            : session.unseenStatus === "reply-ready"
+              ? "Reply ready"
+              : null,
+      ])
+      .filter(([, status]) => status),
+  ) as Record<string, "Working" | "Reply ready" | "Edit ready">;
 }
