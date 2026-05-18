@@ -816,6 +816,7 @@ export default function App() {
         anthropicModel: current.anthropicModel,
         anthropicEffort: current.anthropicEffort,
         lmStudioModel: current.lmStudioModel,
+        instruction: current.instruction,
       },
     }));
   }
@@ -953,12 +954,13 @@ export default function App() {
     }
   }
 
-  function applyPendingAssistantEdit() {
+  async function applyPendingAssistantEdit() {
     if (!activeAssistantSession.pendingEdit || !activeAssistantPath) {
       return;
     }
 
-    addAssistantMessage(activeAssistantPath, { role: "system", content: "Kept edit in the open file. Save manually to write it to disk." });
+    await saveFile();
+    addAssistantMessage(activeAssistantPath, { role: "system", content: "Kept edit and saved it to disk." });
     patchAssistantSession(activeAssistantPath, { pendingEdit: null, isPendingDiffVisible: false });
   }
 
@@ -1107,7 +1109,7 @@ export default function App() {
                 void submitAssistantRequest(request);
               }}
               onImport={importAssistantResponse}
-              onApplyPendingEdit={applyPendingAssistantEdit}
+              onApplyPendingEdit={() => void applyPendingAssistantEdit()}
               onRejectPendingEdit={rejectPendingAssistantEdit}
               onPendingDiffVisibilityChange={(isPendingDiffVisible) => patchAssistantSession(activeAssistantPath, { isPendingDiffVisible })}
               onResetSession={resetActiveAssistantSession}

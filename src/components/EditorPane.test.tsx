@@ -230,7 +230,40 @@ describe("EditorPane", () => {
     ).toBeInTheDocument();
   });
 
+  it("coalesces rich editor markdown updates to the latest frame", () => {
+    vi.useFakeTimers();
+    const onChange = vi.fn();
+    render(
+      <EditorPane
+        openFile={{ relativePath: "chapters/chapter-1.md", name: "chapter-1.md" }}
+        markdown="# Chapter 1"
+        mode="visual"
+        isDirty={false}
+        onChange={onChange}
+        onSave={vi.fn()}
+        onModeChange={vi.fn()}
+      />,
+    );
+
+    act(() => {
+      tiptap.lastOptions?.onUpdate?.({ editor: { getMarkdown: () => "# Chapter" } });
+      tiptap.lastOptions?.onUpdate?.({ editor: { getMarkdown: () => "# Chap" } });
+      tiptap.lastOptions?.onUpdate?.({ editor: { getMarkdown: () => "# Ch" } });
+    });
+
+    expect(onChange).not.toHaveBeenCalled();
+
+    act(() => {
+      vi.advanceTimersByTime(16);
+    });
+
+    expect(onChange).toHaveBeenCalledTimes(1);
+    expect(onChange).toHaveBeenCalledWith("# Ch");
+    vi.useRealTimers();
+  });
+
   it("emits live markdown changes without save-time normalization", () => {
+    vi.useFakeTimers();
     const onChange = vi.fn();
     render(
       <EditorPane
@@ -250,7 +283,12 @@ describe("EditorPane", () => {
       });
     });
 
+    act(() => {
+      vi.advanceTimersByTime(16);
+    });
+
     expect(onChange).toHaveBeenCalledWith("# Chapter 1  ");
+    vi.useRealTimers();
   });
 
   it("emits selected editor text for assistant targeting", () => {

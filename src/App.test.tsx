@@ -640,7 +640,31 @@ describe("App", () => {
     );
     expect(tauriApiMock.writeMarkdownFile).not.toHaveBeenCalled();
     await user.click(screen.getByRole("button", { name: "Keep edits" }));
-    expect(screen.getByText("Kept edit in the open file. Save manually to write it to disk.")).toBeInTheDocument();
+    expect(await screen.findByText("Kept edit and saved it to disk.")).toBeInTheDocument();
+    expect(tauriApiMock.writeMarkdownFile).toHaveBeenCalledWith(
+      "/novel",
+      "chapter-1.md",
+      "# Chapter 1\n\nNew local text.\n",
+    );
+  });
+
+  it("keeps a drafted message when starting a new chat", async () => {
+    const user = userEvent.setup();
+    const chapter = fileNode("chapter-1.md");
+    mockProjectFolder([chapter]);
+    mockMarkdownReads({
+      "chapter-1.md": "# Chapter 1\n\nOld text.",
+    });
+
+    render(<App />);
+
+    await user.click(screen.getByRole("button", { name: "Open Folder" }));
+    await user.click(await screen.findByRole("button", { name: "Open chapter-1.md" }));
+    await openAssistant(user);
+    await user.type(screen.getByLabelText("Message"), "Keep this draft");
+    await user.click(screen.getByRole("button", { name: "New chat" }));
+
+    expect(screen.getByLabelText("Message")).toHaveValue("Keep this draft");
   });
 
   it("keeps chat responses when the user keeps writing while the agent works", async () => {
@@ -1050,7 +1074,7 @@ describe("App", () => {
     await user.clear(screen.getByLabelText("Import response"));
     await user.type(
       screen.getByLabelText("Import response"),
-      "# Chapter 1\n\nNew text.",
+      "# Chapter 1\n\nNew text.\n",
     );
     await user.click(screen.getByRole("button", { name: "Import" }));
 
@@ -1088,7 +1112,7 @@ describe("App", () => {
     await user.click(screen.getByText("Paste response"));
     await user.type(
       screen.getByLabelText("Import response"),
-      "# Chapter 1\n\nNew text.",
+      "# Chapter 1\n\nNew text.\n",
     );
     await user.click(screen.getByRole("button", { name: "Import" }));
 
@@ -1099,8 +1123,12 @@ describe("App", () => {
     );
     expect(screen.getByText("Unsaved")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Keep edits" }));
-    expect(screen.getByText("Kept edit in the open file. Save manually to write it to disk.")).toBeInTheDocument();
-    expect(tauriApiMock.writeMarkdownFile).not.toHaveBeenCalled();
+    expect(await screen.findByText("Kept edit and saved it to disk.")).toBeInTheDocument();
+    expect(tauriApiMock.writeMarkdownFile).toHaveBeenCalledWith(
+      "/novel",
+      "chapter-1.md",
+      "# Chapter 1\n\nNew text.\n",
+    );
   });
 
   it("imports chat suggestions into assistant history without changing the document", async () => {

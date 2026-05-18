@@ -406,6 +406,8 @@ const RichMarkdownEditor = forwardRef<EditorPaneHandle, EditorPaneProps & {
     relativePath: string;
     markdown: string;
   } | null>(null);
+  const pendingMarkdownRef = useRef<string | null>(null);
+  const pendingFrameRef = useRef<number | null>(null);
 
   const editor = useEditor({
     extensions: [StarterKit, Underline, Markdown],
@@ -418,7 +420,20 @@ const RichMarkdownEditor = forwardRef<EditorPaneHandle, EditorPaneProps & {
     },
     immediatelyRender: false,
     onUpdate: ({ editor }) => {
-      onChange(editor.getMarkdown());
+      pendingMarkdownRef.current = editor.getMarkdown();
+
+      if (pendingFrameRef.current !== null) {
+        return;
+      }
+
+      pendingFrameRef.current = window.requestAnimationFrame(() => {
+        pendingFrameRef.current = null;
+        const nextMarkdown = pendingMarkdownRef.current;
+
+        if (nextMarkdown !== null) {
+          onChange(nextMarkdown);
+        }
+      });
     },
     onSelectionUpdate: ({ editor }) => {
       const { selection, doc } = editor.state;
@@ -432,6 +447,14 @@ const RichMarkdownEditor = forwardRef<EditorPaneHandle, EditorPaneProps & {
       onSelectionChange?.(selectedText.trim() ? selectedText : null);
     },
   });
+
+  useEffect(() => {
+    return () => {
+      if (pendingFrameRef.current !== null) {
+        window.cancelAnimationFrame(pendingFrameRef.current);
+      }
+    };
+  }, []);
 
   useEffect(() => {
     if (!editor) {

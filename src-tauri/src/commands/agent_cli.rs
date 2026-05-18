@@ -281,9 +281,9 @@ where
                 "text".into(),
                 "--no-session-persistence".into(),
                 "--permission-mode".into(),
-                "default".into(),
+                "acceptEdits".into(),
                 "--tools".into(),
-                "".into(),
+                "default".into(),
             ];
             if let Some(model) = clean_optional_cli_value(model) {
                 args.push("--model".into());
@@ -543,7 +543,7 @@ mod tests {
     }
 
     #[test]
-    fn builds_claude_subscription_command_without_file_tools() {
+    fn builds_claude_subscription_command_with_project_file_tools() {
         let root = PathBuf::from("/tmp/novel");
         let spec = command_spec_for_provider_with_resolver(
             &CliAgentProvider::AnthropicSubscription,
@@ -566,8 +566,10 @@ mod tests {
         assert!(args.contains(&"--effort".to_string()));
         assert!(args.contains(&"xhigh".to_string()));
         assert!(args.contains(&"--no-session-persistence".to_string()));
+        assert!(args.contains(&"--permission-mode".to_string()));
+        assert!(args.contains(&"acceptEdits".to_string()));
         assert!(args.contains(&"--tools".to_string()));
-        assert!(args.contains(&"".to_string()));
+        assert!(args.contains(&"default".to_string()));
         assert!(spec.output_path.is_none());
     }
 
