@@ -807,6 +807,23 @@ export default function App() {
     );
   }
 
+  function resetActiveAssistantSession() {
+    if (!activeAssistantPath) return;
+    const current = activeAssistantSession;
+    setAssistantSessions((sessions) => ({
+      ...sessions,
+      [activeAssistantPath]: {
+        ...createAssistantSession(state.settings),
+        provider: current.provider,
+        openaiModel: current.openaiModel,
+        openaiEffort: current.openaiEffort,
+        anthropicModel: current.anthropicModel,
+        anthropicEffort: current.anthropicEffort,
+        lmStudioModel: current.lmStudioModel,
+      },
+    }));
+  }
+
   async function submitAssistantRequest(request: AssistantRequest) {
     if (!state.rootPath || !state.openFile || activeAssistantSession.isRunning) {
       return;
@@ -1095,6 +1112,7 @@ export default function App() {
               onApplyPendingEdit={applyPendingAssistantEdit}
               onRejectPendingEdit={rejectPendingAssistantEdit}
               onPendingDiffVisibilityChange={(isPendingDiffVisible) => patchAssistantSession(activeAssistantPath, { isPendingDiffVisible })}
+              onResetSession={resetActiveAssistantSession}
               onClose={() => setIsAssistantOpen(false)}
             />
           </>

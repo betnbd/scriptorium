@@ -72,3 +72,6 @@ The file tree should stay visually quiet by default. Only documents with actiona
 - `Edit ready` when an unseen staged edit is waiting for review
 
 `Edit ready` receives the strongest emphasis because it requires user action. Idle sessions show no badge.
+
+## Per-Document Reset
+The active document may start a new chat without disturbing any other document session. Resetting clears the active transcript, draft/import text, selection, pending edit, diff visibility, unseen status, and running state, while preserving that document's current provider/model/effort choices so a reset feels like a fresh conversation rather than a settings rollback.

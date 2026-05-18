@@ -544,6 +544,12 @@ select {
   white-space: nowrap;
 }
 
+.assistant-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .assistant-close {
   flex: 0 0 auto;
 }

@@ -49,6 +49,7 @@ interface AssistantPaneProps {
   onApplyPendingEdit?: () => void;
   onRejectPendingEdit?: () => void;
   onPendingDiffVisibilityChange?: (isVisible: boolean) => void;
+  onResetSession?: () => void;
   onClose: () => void;
 }
 
@@ -76,6 +77,7 @@ export function AssistantPane({
   onApplyPendingEdit,
   onRejectPendingEdit,
   onPendingDiffVisibilityChange,
+  onResetSession,
   onClose,
 }: AssistantPaneProps) {
   const [localFields, setLocalFields] = useState({
@@ -176,9 +178,16 @@ export function AssistantPane({
           <h2>AI</h2>
           <p>{targetLabel ?? "Open a Markdown file"}</p>
         </div>
-        <button type="button" className="assistant-close" onClick={onClose}>
-          Hide
-        </button>
+        <div className="assistant-header-actions">
+          {onResetSession ? (
+            <button type="button" onClick={onResetSession}>
+              New chat
+            </button>
+          ) : null}
+          <button type="button" className="assistant-close" onClick={onClose}>
+            Hide
+          </button>
+        </div>
       </header>
 
       <div
