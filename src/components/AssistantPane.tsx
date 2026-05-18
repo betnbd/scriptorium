@@ -34,6 +34,16 @@ interface AssistantPaneProps {
     >
   >;
   targetLabel?: string | null;
+  provider?: ProviderId;
+  mode?: AssistantMode;
+  openaiModel?: string;
+  openaiEffort?: string;
+  anthropicModel?: string;
+  anthropicEffort?: string;
+  lmStudioModel?: string;
+  instruction?: string;
+  importText?: string;
+  onFieldChange?: (patch: Record<string, unknown>) => void;
   onSubmit: (request: AssistantRequest) => void;
   onImport: (response: string, mode: AssistantMode) => void;
   onApplyPendingEdit?: () => void;
@@ -51,6 +61,16 @@ export function AssistantPane({
   isPendingDiffVisible = false,
   providerStatuses = {},
   targetLabel = null,
+  provider: controlledProvider,
+  mode: controlledMode,
+  openaiModel: controlledOpenaiModel,
+  openaiEffort: controlledOpenaiEffort,
+  anthropicModel: controlledAnthropicModel,
+  anthropicEffort: controlledAnthropicEffort,
+  lmStudioModel: controlledLmStudioModel,
+  instruction: controlledInstruction,
+  importText: controlledImportText,
+  onFieldChange,
   onSubmit,
   onImport,
   onApplyPendingEdit,
@@ -58,17 +78,30 @@ export function AssistantPane({
   onPendingDiffVisibilityChange,
   onClose,
 }: AssistantPaneProps) {
-  const [provider, setProvider] = useState<ProviderId>(settings.defaultProvider);
-  const [mode, setMode] = useState<AssistantMode>("chat");
-  const [openaiModel, setOpenaiModel] = useState(settings.openaiModel);
-  const [openaiEffort, setOpenaiEffort] = useState(settings.openaiEffort);
-  const [anthropicModel, setAnthropicModel] = useState(settings.anthropicModel);
-  const [anthropicEffort, setAnthropicEffort] = useState(
-    settings.anthropicEffort,
-  );
-  const [lmStudioModel, setLmStudioModel] = useState(settings.lmStudioModel);
-  const [instruction, setInstruction] = useState("");
-  const [importText, setImportText] = useState("");
+  const [localFields, setLocalFields] = useState({
+    provider: settings.defaultProvider,
+    mode: "chat" as AssistantMode,
+    openaiModel: settings.openaiModel,
+    openaiEffort: settings.openaiEffort,
+    anthropicModel: settings.anthropicModel,
+    anthropicEffort: settings.anthropicEffort,
+    lmStudioModel: settings.lmStudioModel,
+    instruction: "",
+    importText: "",
+  });
+  const provider = controlledProvider ?? localFields.provider;
+  const mode = controlledMode ?? localFields.mode;
+  const openaiModel = controlledOpenaiModel ?? localFields.openaiModel;
+  const openaiEffort = controlledOpenaiEffort ?? localFields.openaiEffort;
+  const anthropicModel = controlledAnthropicModel ?? localFields.anthropicModel;
+  const anthropicEffort = controlledAnthropicEffort ?? localFields.anthropicEffort;
+  const lmStudioModel = controlledLmStudioModel ?? localFields.lmStudioModel;
+  const instruction = controlledInstruction ?? localFields.instruction;
+  const importText = controlledImportText ?? localFields.importText;
+  function updateFields(patch: Partial<typeof localFields>) {
+    setLocalFields((fields) => ({ ...fields, ...patch }));
+    onFieldChange?.(patch);
+  }
   const [runningElapsedSeconds, setRunningElapsedSeconds] = useState(0);
   const historyRef = useRef<HTMLDivElement | null>(null);
   const providerStatus =
@@ -97,15 +130,6 @@ export function AssistantPane({
     openaiEffort,
     anthropicEffort,
   });
-
-  useEffect(() => {
-    setProvider(settings.defaultProvider);
-    setOpenaiModel(settings.openaiModel);
-    setOpenaiEffort(settings.openaiEffort);
-    setAnthropicModel(settings.anthropicModel);
-    setAnthropicEffort(settings.anthropicEffort);
-    setLmStudioModel(settings.lmStudioModel);
-  }, [settings]);
 
   useEffect(() => {
     const history = historyRef.current;
@@ -142,7 +166,7 @@ export function AssistantPane({
       model: selectedModel,
       effort: selectedEffort,
     });
-    setInstruction("");
+    updateFields({ instruction: "" });
   }
 
   return (
@@ -233,7 +257,7 @@ export function AssistantPane({
             <select
               aria-label="Provider"
               value={provider}
-              onChange={(event) => setProvider(event.target.value as ProviderId)}
+              onChange={(event) => updateFields({ provider: event.target.value as ProviderId })}
             >
               <option value="anthropic-subscription">
                 Anthropic subscription via Claude Code
@@ -251,7 +275,7 @@ export function AssistantPane({
               <input
                 aria-label="Model"
                 value={lmStudioModel}
-                onChange={(event) => setLmStudioModel(event.target.value)}
+                onChange={(event) => updateFields({ lmStudioModel: event.target.value })}
               />
             ) : (
               <select
@@ -259,8 +283,8 @@ export function AssistantPane({
                 value={selectedModel}
                 onChange={(event) =>
                   provider === "openai-subscription"
-                    ? setOpenaiModel(event.target.value)
-                    : setAnthropicModel(event.target.value)
+                    ? updateFields({ openaiModel: event.target.value })
+                    : updateFields({ anthropicModel: event.target.value })
                 }
               >
                 {modelOptionsForProvider(provider).map((option) => (
@@ -280,8 +304,8 @@ export function AssistantPane({
                 value={selectedEffort}
                 onChange={(event) =>
                   provider === "openai-subscription"
-                    ? setOpenaiEffort(event.target.value)
-                    : setAnthropicEffort(event.target.value)
+                    ? updateFields({ openaiEffort: event.target.value })
+                    : updateFields({ anthropicEffort: event.target.value })
                 }
               >
                 {effortOptionsForProvider(provider).map((option) => (
@@ -303,7 +327,7 @@ export function AssistantPane({
               <input
                 checked={mode === option.value}
                 name="assistant-mode"
-                onChange={() => setMode(option.value)}
+                onChange={() => updateFields({ mode: option.value })}
                 type="radio"
                 value={option.value}
               />
@@ -317,7 +341,7 @@ export function AssistantPane({
           <textarea
             aria-label="Message"
             value={instruction}
-            onChange={(event) => setInstruction(event.target.value)}
+            onChange={(event) => updateFields({ instruction: event.target.value })}
             rows={5}
           />
         </label>
@@ -349,7 +373,7 @@ export function AssistantPane({
           <textarea
             aria-label="Import response"
             value={importText}
-            onChange={(event) => setImportText(event.target.value)}
+            onChange={(event) => updateFields({ importText: event.target.value })}
             rows={8}
           />
         </label>

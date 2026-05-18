@@ -15,8 +15,8 @@ describe("providerOptions", () => {
       ]),
     );
     expect(modelOptionsForProvider("anthropic-subscription")).toEqual([
-      { value: "sonnet", label: "Sonnet" },
-      { value: "opus", label: "Opus" },
+      { value: "sonnet", label: "Claude Sonnet 4" },
+      { value: "opus", label: "Claude Opus 4.1" },
     ]);
   });
 

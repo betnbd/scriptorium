@@ -30,8 +30,7 @@ import {
 } from "./state/layout";
 import type {
   AppSettings,
-  AssistantMode,
-  AssistantPendingEdit,
+  AssistantSession,
   EditorFont,
   FileNode,
   IndexedDocument,
@@ -46,16 +45,8 @@ export default function App() {
     Partial<Record<SubscriptionProviderId, ProviderStatus>>
   >({});
   const [isProviderStatusLoading, setIsProviderStatusLoading] = useState(false);
-  const [assistantSelection, setAssistantSelection] = useState<string | null>(
-    null,
-  );
-  const [pendingAssistantEdit, setPendingAssistantEdit] =
-    useState<AssistantPendingEdit | null>(null);
-  const [isPendingDiffVisible, setIsPendingDiffVisible] = useState(false);
-  const [assistantMode, setAssistantMode] = useState<AssistantMode>("chat");
+  const [assistantSessions, setAssistantSessions] = useState<Record<string, AssistantSession>>({});
   const [isAssistantOpen, setIsAssistantOpen] = useState(true);
-  const [assistantSessionId, setAssistantSessionId] = useState(0);
-  const [isAssistantRunning, setIsAssistantRunning] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [editorMode, setEditorMode] = useState<EditorMode>("visual");
   const [paneLayout, setPaneLayout] = useState<PaneLayout>(defaultPaneLayout);
@@ -75,6 +66,10 @@ export default function App() {
     relativePath: state.openFile?.relativePath ?? null,
     markdown: state.openMarkdown,
   };
+  const activeAssistantPath = state.openFile?.relativePath ?? null;
+  const activeAssistantSession = activeAssistantPath
+    ? assistantSessions[activeAssistantPath] ?? createAssistantSession(state.settings)
+    : createAssistantSession(state.settings);
   const appUiFontSizes = uiFontSizesForZoom(state.settings.appZoomLevel);
   const appZoomScale = scaleForAppZoom(state.settings.appZoomLevel);
   const editorSettingsStyle = {
@@ -226,7 +221,7 @@ export default function App() {
       const { effectiveSettings, indexedDocuments, projectSettings, tree } =
         await loadProject(rootPath);
 
-      setAssistantSelection(null);
+      setAssistantSessions({});
       dispatch({
         type: "projectOpened",
         rootPath,
@@ -260,7 +255,7 @@ export default function App() {
         picked.filePath,
       );
 
-      setAssistantSelection(null);
+      setAssistantSessions({});
       dispatch({
         type: "projectOpened",
         rootPath: picked.rootPath,
@@ -314,7 +309,6 @@ export default function App() {
     try {
       const opened = await tauriApi.readMarkdownFile(state.rootPath, path);
 
-      setAssistantSelection(null);
       dispatch({
         type: "fileOpened",
         file: opened.file,
@@ -362,7 +356,6 @@ export default function App() {
       return;
     }
 
-    setAssistantSelection(null);
     dispatch({ type: "fileClosed" });
   }
 
@@ -670,9 +663,9 @@ export default function App() {
     try {
       await tauriApi.deleteEntry(state.rootPath, path);
       await refreshTree();
+      removeAssistantSessions(path);
 
       if (isOpenEntry) {
-        setAssistantSelection(null);
         dispatch({ type: "fileClosed" });
       }
     } catch (error) {
@@ -720,8 +713,6 @@ export default function App() {
   }
 
   function openAssistant() {
-    setAssistantMode("chat");
-    setAssistantSessionId((current) => current + 1);
     setIsAssistantOpen(true);
   }
 
@@ -765,24 +756,69 @@ export default function App() {
 
     const file = findFileNode(tree, nextOpenPath);
 
+    migrateAssistantSessions(oldPath, newPath);
     dispatch(file ? { type: "openFileMetadataUpdated", file } : { type: "fileClosed" });
   }
 
+  function patchAssistantSession(path: string | null, patch: Partial<AssistantSession>) {
+    if (!path) return;
+    setAssistantSessions((sessions) => ({
+      ...sessions,
+      [path]: { ...(sessions[path] ?? createAssistantSession(state.settings)), ...patch },
+    }));
+  }
+
+  function addAssistantMessage(
+    path: string | null,
+    message: AssistantSession["messages"][number],
+  ) {
+    if (!path) return;
+    setAssistantSessions((sessions) => {
+      const session = sessions[path] ?? createAssistantSession(state.settings);
+      return {
+        ...sessions,
+        [path]: { ...session, messages: [...session.messages, message] },
+      };
+    });
+  }
+
+  function migrateAssistantSessions(oldPath: string, newPath: string) {
+    setAssistantSessions((sessions) => {
+      const next = { ...sessions };
+      for (const [path, session] of Object.entries(sessions)) {
+        const replacement = replacePathPrefix(path, oldPath, newPath);
+        if (replacement && replacement !== path) {
+          next[replacement] = session;
+          delete next[path];
+        }
+      }
+      return next;
+    });
+  }
+
+  function removeAssistantSessions(path: string) {
+    setAssistantSessions((sessions) =>
+      Object.fromEntries(
+        Object.entries(sessions).filter(
+          ([sessionPath]) => !isSamePathOrDescendant(sessionPath, path),
+        ),
+      ),
+    );
+  }
+
   async function submitAssistantRequest(request: AssistantRequest) {
-    if (!state.rootPath || !state.openFile || isAssistantRunning) {
+    if (!state.rootPath || !state.openFile || activeAssistantSession.isRunning) {
       return;
     }
 
+    const submittedFilePath = state.openFile.relativePath;
     try {
-      setIsAssistantRunning(true);
-      setAssistantMode(request.mode);
-
-      const submittedFilePath = state.openFile.relativePath;
+      patchAssistantSession(submittedFilePath, { isRunning: true, mode: request.mode });
       const submittedMarkdown = state.openMarkdown;
       const guardedMarkdown =
         request.mode === "edit" ? submittedMarkdown : undefined;
-      const targetMarkdown = assistantSelection?.trim()
-        ? assistantSelection
+      const targetMarkdown = activeAssistantSession.selection?.trim()
+        ? activeAssistantSession.selection
         : state.openMarkdown;
       const context = selectRelevantContext({
         documents: state.indexedDocuments,
@@ -794,21 +830,15 @@ export default function App() {
         mode: request.mode,
         instruction: request.instruction,
         systemPrompt: state.settings.assistantSystemPrompt,
-        targetLabel: assistantSelection?.trim()
+        targetLabel: activeAssistantSession.selection?.trim()
           ? `${state.openFile.relativePath} (current selection)`
           : state.openFile.relativePath,
         targetMarkdown,
         projectFiles: flattenProjectFilePaths(state.tree),
         context,
-        conversation: state.assistantMessages,
+        conversation: activeAssistantSession.messages,
       });
-      dispatch({
-        type: "assistantMessageAdded",
-        message: {
-          role: "user",
-          content: formatAssistantUserMessage(request),
-        },
-      });
+      addAssistantMessage(submittedFilePath, { role: "user", content: formatAssistantUserMessage(request) });
 
       if (request.provider === "lm-studio") {
         const response = await tauriApi.sendLmStudioRequest(
@@ -843,21 +873,17 @@ export default function App() {
     } catch (error) {
       showError(error);
     } finally {
-      setIsAssistantRunning(false);
+      patchAssistantSession(submittedFilePath, { isRunning: false });
     }
   }
 
   function importAssistantResponse(
     response: string,
-    mode = assistantMode,
+    mode = activeAssistantSession.mode,
     expectedFilePath?: string,
     expectedMarkdown?: string,
   ) {
     if (!response.trim()) {
-      return;
-    }
-
-    if (expectedFilePath && liveEditorRef.current.relativePath !== expectedFilePath) {
       return;
     }
 
@@ -871,14 +897,7 @@ export default function App() {
     }
 
     if (mode === "chat") {
-      setAssistantMode(mode);
-      dispatch({
-        type: "assistantMessageAdded",
-        message: {
-          role: "assistant",
-          content: response.trim(),
-        },
-      });
+      addAssistantMessage(expectedFilePath ?? activeAssistantPath, { role: "assistant", content: response.trim() });
       return;
     }
 
@@ -890,35 +909,22 @@ export default function App() {
           : liveEditorRef.current.markdown;
       const nextMarkdown = applyAssistantResult(currentMarkdown, parsed);
 
-      setAssistantMode(mode);
+      const targetPath = expectedFilePath ?? activeAssistantPath;
 
       if (parsed.kind === "edit") {
         dispatch({ type: "editorChanged", markdown: nextMarkdown });
-        setPendingAssistantEdit({
+        patchAssistantSession(targetPath, { pendingEdit: {
           mode: "edit",
           response: response.trim(),
           previousMarkdown: currentMarkdown,
           nextMarkdown,
-        });
-        setIsPendingDiffVisible(true);
+        }, isPendingDiffVisible: true });
       }
 
-      dispatch({
-        type: "assistantMessageAdded",
-        message: {
-          role: "assistant",
-          content: response.trim(),
-        },
-      });
+      addAssistantMessage(targetPath, { role: "assistant", content: response.trim() });
 
       if (parsed.kind === "edit") {
-        dispatch({
-          type: "assistantMessageAdded",
-          message: {
-            role: "system",
-            content: "Review the staged edit before saving.",
-          },
-        });
+        addAssistantMessage(targetPath, { role: "system", content: "Review the staged edit before saving." });
       }
     } catch (error) {
       showError(error);
@@ -926,39 +932,25 @@ export default function App() {
   }
 
   function applyPendingAssistantEdit() {
-    if (!pendingAssistantEdit) {
+    if (!activeAssistantSession.pendingEdit || !activeAssistantPath) {
       return;
     }
 
-    dispatch({
-      type: "assistantMessageAdded",
-      message: {
-        role: "system",
-        content: "Kept edit in the open file. Save manually to write it to disk.",
-      },
-    });
-    setPendingAssistantEdit(null);
-    setIsPendingDiffVisible(false);
+    addAssistantMessage(activeAssistantPath, { role: "system", content: "Kept edit in the open file. Save manually to write it to disk." });
+    patchAssistantSession(activeAssistantPath, { pendingEdit: null, isPendingDiffVisible: false });
   }
 
   function rejectPendingAssistantEdit() {
-    if (!pendingAssistantEdit) {
+    if (!activeAssistantSession.pendingEdit || !activeAssistantPath) {
       return;
     }
 
     dispatch({
       type: "editorChanged",
-      markdown: pendingAssistantEdit.previousMarkdown,
+      markdown: activeAssistantSession.pendingEdit.previousMarkdown,
     });
-    dispatch({
-      type: "assistantMessageAdded",
-      message: {
-        role: "system",
-        content: "Rejected edit and restored the previous text.",
-      },
-    });
-    setPendingAssistantEdit(null);
-    setIsPendingDiffVisible(false);
+    addAssistantMessage(activeAssistantPath, { role: "system", content: "Rejected edit and restored the previous text." });
+    patchAssistantSession(activeAssistantPath, { pendingEdit: null, isPendingDiffVisible: false });
   }
 
   return (
@@ -1038,12 +1030,12 @@ export default function App() {
           markdown={state.openMarkdown}
           mode={editorMode}
           isDirty={state.isDirty}
-          isAiEditStaged={Boolean(pendingAssistantEdit)}
+          isAiEditStaged={Boolean(activeAssistantSession.pendingEdit)}
           stagedDiff={
-            pendingAssistantEdit && isPendingDiffVisible
+            activeAssistantSession.pendingEdit && activeAssistantSession.isPendingDiffVisible
               ? {
-                  previousMarkdown: pendingAssistantEdit.previousMarkdown,
-                  nextMarkdown: pendingAssistantEdit.nextMarkdown,
+                  previousMarkdown: activeAssistantSession.pendingEdit.previousMarkdown,
+                  nextMarkdown: activeAssistantSession.pendingEdit.nextMarkdown,
                 }
               : null
           }
@@ -1054,7 +1046,7 @@ export default function App() {
           onOpenFolder={openFolder}
           onOpenFile={openPickedFile}
           onModeChange={setEditorMode}
-          onSelectionChange={setAssistantSelection}
+          onSelectionChange={(selection) => patchAssistantSession(activeAssistantPath, { selection })}
         />
         {isAssistantOpen ? (
           <>
@@ -1064,17 +1056,26 @@ export default function App() {
               onPointerDown={(event) => startPaneResize("assistant", event)}
             />
             <AssistantPane
-              key={assistantSessionId}
               settings={state.settings}
               canSubmit={Boolean(state.openFile)}
-              isRunning={isAssistantRunning}
-              messages={state.assistantMessages}
-              pendingEdit={pendingAssistantEdit}
-              isPendingDiffVisible={isPendingDiffVisible}
+              isRunning={activeAssistantSession.isRunning}
+              messages={activeAssistantSession.messages}
+              pendingEdit={activeAssistantSession.pendingEdit}
+              isPendingDiffVisible={activeAssistantSession.isPendingDiffVisible}
+              provider={activeAssistantSession.provider}
+              mode={activeAssistantSession.mode}
+              openaiModel={activeAssistantSession.openaiModel}
+              openaiEffort={activeAssistantSession.openaiEffort}
+              anthropicModel={activeAssistantSession.anthropicModel}
+              anthropicEffort={activeAssistantSession.anthropicEffort}
+              lmStudioModel={activeAssistantSession.lmStudioModel}
+              instruction={activeAssistantSession.instruction}
+              importText={activeAssistantSession.importText}
+              onFieldChange={(patch) => patchAssistantSession(activeAssistantPath, patch)}
               providerStatuses={providerStatuses}
               targetLabel={
                 state.openFile
-                  ? assistantSelection?.trim()
+                  ? activeAssistantSession.selection?.trim()
                     ? `${state.openFile.relativePath} selection`
                     : state.openFile.relativePath
                   : null
@@ -1085,7 +1086,7 @@ export default function App() {
               onImport={importAssistantResponse}
               onApplyPendingEdit={applyPendingAssistantEdit}
               onRejectPendingEdit={rejectPendingAssistantEdit}
-              onPendingDiffVisibilityChange={setIsPendingDiffVisible}
+              onPendingDiffVisibilityChange={(isPendingDiffVisible) => patchAssistantSession(activeAssistantPath, { isPendingDiffVisible })}
               onClose={() => setIsAssistantOpen(false)}
             />
           </>
@@ -1577,4 +1578,23 @@ function parseEnvBoolean(value: string | undefined): boolean | null {
   }
 
   return null;
+}
+
+function createAssistantSession(settings: AppSettings): AssistantSession {
+  return {
+    messages: [],
+    mode: "chat",
+    provider: settings.defaultProvider,
+    openaiModel: settings.openaiModel,
+    openaiEffort: settings.openaiEffort,
+    anthropicModel: settings.anthropicModel,
+    anthropicEffort: settings.anthropicEffort,
+    lmStudioModel: settings.lmStudioModel,
+    instruction: "",
+    importText: "",
+    isRunning: false,
+    pendingEdit: null,
+    isPendingDiffVisible: false,
+    selection: null,
+  };
 }

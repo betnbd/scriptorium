@@ -54,6 +54,23 @@ export interface AssistantPendingEdit {
   nextMarkdown: string;
 }
 
+export interface AssistantSession {
+  messages: AssistantMessage[];
+  mode: AssistantMode;
+  provider: ProviderId;
+  openaiModel: string;
+  openaiEffort: string;
+  anthropicModel: string;
+  anthropicEffort: string;
+  lmStudioModel: string;
+  instruction: string;
+  importText: string;
+  isRunning: boolean;
+  pendingEdit: AssistantPendingEdit | null;
+  isPendingDiffVisible: boolean;
+  selection: string | null;
+}
+
 export interface ProviderStatus {
   provider: Extract<ProviderId, "openai-subscription" | "anthropic-subscription">;
   installed: boolean;

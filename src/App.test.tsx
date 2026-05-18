@@ -712,7 +712,7 @@ describe("App", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("keeps provider and model choices when switching files in one assistant session", async () => {
+  it("starts each file with its own assistant controls when switching files", async () => {
     const user = userEvent.setup();
     const chapter = fileNode("chapter-1.md");
     const scene = fileNode("scene.md");
@@ -740,8 +740,8 @@ describe("App", () => {
     expect(screen.getByLabelText("Provider")).toHaveValue(
       "anthropic-subscription",
     );
-    expect(screen.getByLabelText("Model")).toHaveValue("opus");
-    expect(screen.getByLabelText("Effort")).toHaveValue("xhigh");
+    expect(screen.getByLabelText("Model")).toHaveValue("sonnet");
+    expect(screen.getByLabelText("Effort")).toHaveValue("medium");
   });
 
   it("shows an error banner when LM Studio requests fail", async () => {

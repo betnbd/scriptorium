@@ -14,8 +14,8 @@ export const openaiModelOptions: ProviderOption[] = [
 ];
 
 export const anthropicModelOptions: ProviderOption[] = [
-  { value: "sonnet", label: "Sonnet" },
-  { value: "opus", label: "Opus" },
+  { value: "sonnet", label: "Claude Sonnet 4" },
+  { value: "opus", label: "Claude Opus 4.1" },
 ];
 
 export const openaiEffortOptions: ProviderOption[] = [
