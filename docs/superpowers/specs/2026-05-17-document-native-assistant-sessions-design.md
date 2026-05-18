@@ -35,7 +35,7 @@ For edit-mode responses, the app should only stage the edit if the originating d
 - Opening a new project clears all document sessions, matching the current reset-on-project-open behavior.
 
 ## UI Behavior
-The pane keeps its current visual structure. The only visible behavioral change is that each chapter resumes its own controls, prompt draft, transcript, running indicator, and staged-edit state. No tabs, extra windows, or global session picker are added.
+The pane keeps its current visual structure. The only visible behavioral changes are that each chapter resumes its own controls, prompt draft, transcript, running indicator, and staged-edit state, and Anthropic model labels show the concrete model generation rather than only the family alias (for example, `Claude Sonnet 4` and `Claude Opus 4.1`). No tabs, extra windows, or global session picker are added.
 
 ## Error Handling
 - Late responses route to the originating session without stealing focus.
