@@ -35,6 +35,8 @@ For very large Markdown files, **Visual** mode becomes a read-only rendered prev
 3. Type a message.
 4. Send the request.
 
+Each Markdown file keeps its own assistant session for the current app run. If one chapter is still working while you switch to another, it continues in the background and is waiting for you when you return.
+
 Modes:
 
 - **Chat**: discusses the open file and can suggest changes without touching the document.
